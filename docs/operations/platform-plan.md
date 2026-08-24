@@ -2,7 +2,9 @@
 
 **Card:** AW-005  
 **Scope:** clean-room Chat Core through the 10–50-person, single-organization pilot and an AWS growth path  
-**Operating constraint:** source remains on trusted local machines. Only runtime-only OCI images, migration artifacts, source maps kept in a private error-symbol store, and SBOM/provenance may leave that boundary.
+**Source policy:** `docs/security/source-and-provenance-policy.md` controls. Agent Workspace 제품 소스는 승인된 private hosted Git/CI를 사용할 수 있다. 고객 repository 내용·경로와 vendor credentials가 local-by-default인 경계와 혼동하지 않는다.
+
+> **Release authority:** `docs/quality/release-profile-registry.md` controls M1 topology, 1,000/2,500 socket profiles, RPO/RTO, controlled restart, procurement evidence, and Agent-phase entry.
 
 ## 1. Outcomes and principles
 
@@ -19,7 +21,7 @@ Operational decisions:
 1. **Start with containers, not a cluster platform.** Docker Compose is the local contract; the pilot uses managed application containers, PostgreSQL, and object storage. Do not introduce Kubernetes, Kafka, a service mesh, or a separate streaming platform.
 2. **Keep PostgreSQL authoritative.** A Socket.IO ACK is not durable acceptance. `message.accepted` is emitted only after the message, audit record, and outbox event commit.
 3. **Run one API gateway in the pilot.** This preserves simple in-process fan-out and avoids Redis. Reconnect/cursor resume is required, so an API restart is recoverable. Scale vertically first.
-4. **Separate build from run.** The same immutable OCI image digest is promoted from staging to production. Cloud services never receive the source checkout or credentials used to build it.
+4. **Separate build from run.** The same immutable OCI image digest is promoted from staging to production. Runtime services receive images, not a source checkout. Approved private hosted Git/CI may process product source under the source policy.
 5. **Prefer managed state.** Do not run PostgreSQL, object storage, or an observability database on a general-purpose VM in the pilot.
 6. **Automate repeatable operations, but keep the stack understandable.** Every deploy, migration, backup restore, and rollback has a command, an owner, and retained evidence.
 7. **Portability is a contract, not lowest-common-denominator architecture.** Use PostgreSQL, S3 API, OIDC, OpenTelemetry, standard HTTP/WebSocket, OCI images, environment variables, and DNS/TLS boundaries.
@@ -116,11 +118,11 @@ Production must reject development defaults, wildcard origins, insecure cookies,
 
 ## 4. CI and release evidence
 
-### 4.1 Source-local CI
+### 4.1 Provider-neutral clean-checkout CI
 
-While source must remain local, do not upload it to hosted GitHub/GitLab builders. The authoritative pipeline is a versioned repository script (`pnpm ci`) executed in a **clean local checkout on a dedicated trusted runner**. The runner may be a small local Mac/Linux host or a disposable local VM. It must not use the developer's working tree, `.env.local`, or production credentials.
+The authoritative pipeline is the repository-owned `pnpm ci` contract executed from a clean checkout. It may run in an approved private hosted CI organization or in the optional source-local runner profile from the source policy. It must not use a developer's dirty working tree, `.env.local`, customer repository material, customer vendor credentials, or production data.
 
-A push to a local bare Git remote can trigger the trusted runner, but a manual invocation is acceptable for the pilot if release evidence is retained. A release is prohibited unless the runner records:
+A release is prohibited unless the selected approved runner records:
 
 - commit SHA and clean-tree assertion;
 - Node, pnpm, Docker, and PostgreSQL versions;
@@ -129,7 +131,7 @@ A push to a local bare Git remote can trigger the trusted runner, but a manual i
 - migration plan/check result;
 - signer identity and timestamp.
 
-If the source-hosting policy later permits private hosted source, move the same commands unchanged into GitHub Actions or another hosted CI. The gate must not depend on a provider-only test runner behavior.
+The gate must not depend on provider-only test behavior. Hosted and optional source-local runners execute the same repository commands.
 
 Clean-checkout preflight:
 
@@ -203,7 +205,7 @@ The quality thresholds from the product direction are release blockers, not aspi
 
 ### 4.3 Artifact publication and promotion
 
-Because source remains local, the runner builds a runtime-only OCI image and pushes it over TLS to a private registry. Prefer AWS ECR even for the pilot if the selected application platform can pull from it; otherwise use a dedicated private registry with short-lived credentials. Never embed registry credentials in the image.
+The runner builds a runtime-only OCI image and pushes it over TLS to a private registry. Prefer AWS ECR when the selected platform can pull from it; otherwise use a dedicated private registry with short-lived credentials. Never embed registry credentials in the image.
 
 ```bash
 # Example ECR publication from the trusted local runner.
@@ -510,13 +512,14 @@ Every alert links to a dashboard and runbook, names an owner, includes environme
 
 ### 11.1 Policy
 
-Pilot targets:
+M1 blocking pilot targets:
 
-- PostgreSQL **RPO <=15 minutes**, **RTO <=4 hours**.
-- Attachments **RPO <=24 hours** initially, tightened to <=1 hour before contractual reliance; RTO <=8 hours.
+- PostgreSQL disaster recovery **RPO <=5 minutes**, **RTO <=60 minutes**.
+- Accepted-message RPO is 0 for controlled non-PITR process/restart/failover scenarios.
+- Attachment/object recovery must satisfy the release registry's integrity fixture and timed M1 restore; a weaker standalone object target cannot pass `M1-OPS`.
 - Audit/configuration needed to interpret restored data follows the PostgreSQL target.
 
-AWS growth targets: PostgreSQL RPO <=5 minutes and RTO <=1 hour using RDS PITR/Multi-AZ; S3 versioning and replication/backup policy based on contract.
+AWS growth retains or improves these targets using RDS PITR/Multi-AZ and versioned S3 policy.
 
 Controls:
 

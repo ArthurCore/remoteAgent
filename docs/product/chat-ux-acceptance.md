@@ -1,5 +1,7 @@
 # Commercial-quality Web Chat UX Acceptance Specification
 
+> **Gate authority:** Countable gate membership, tier, evidence mode, and owner are defined only by `docs/product/chat-ux-gate-registry.md`. This specification contains 179 uniquely identified criteria. Unnumbered principles and journey prose explain those IDs but do not create additional release rows.
+
 - **Work item:** AW-002
 - **Status:** Milestone 1 implementation contract
 - **Primary surface:** responsive web
@@ -18,7 +20,7 @@ A Milestone 1 release is acceptable only when a team can use the product every d
 | **MVP — release blocking** | Required for Milestone 1. Missing or materially broken behavior blocks release. |
 | **Deferred** | Explicitly excluded from Milestone 1. It must not appear as a working promise or a dead-end control. |
 
-Unless marked **Deferred**, every criterion in this document is **MVP — release blocking**.
+Every identified criterion is classified by the gate registry as `NON_WAIVABLE`, `RELEASE_BLOCKING`, or `TRACKED_POLISH`. Unnumbered prose is explanatory. `TRACKED_POLISH` gaps do not fail M1 but require an owned tracking issue; deferred capability IDs do not promote those capabilities into M1.
 
 ### 1.2 MVP product model
 

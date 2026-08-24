@@ -4,7 +4,7 @@
 
 **Goal:** Agent 없이도 팀이 사용할 수 있는 상용 품질의 채팅 기반을 만들고, 후속 Local Agent 연결이 가능한 안정적인 principal·event 경계를 확보한다.
 
-**Architecture:** 자체 TypeScript modular monolith와 PostgreSQL을 정본으로 사용한다. HTTP command와 WebSocket event를 분리하고, 채널의 모든 사용자 가시 mutation을 포괄하는 `event_seq`, snapshot high-watermark, cursor resume로 웹·모바일 동기화를 보장한다. Agent, Shared Mind, 제품 Kanban, Orchestrator는 Chat Foundation 합격 후에만 추가한다.
+**Architecture:** 자체 TypeScript modular monolith와 PostgreSQL을 정본으로 사용한다. HTTP command와 WebSocket event를 분리하고, 채널의 모든 사용자 가시 mutation을 포괄하는 `event_seq`, snapshot high-watermark, cursor resume로 웹·모바일 동기화를 보장한다. Agent는 Chat Foundation과 Operations gate가 통과된 뒤 별도 단계로 시작한다. Shared Mind, 제품 Kanban, Orchestrator는 M1 이후에도 계속 deferred이며, 실제 사용 근거와 별도 승인 PRD 없이는 시작하지 않는다.
 
 **Tech Stack:** pnpm, Turborepo, TypeScript, Next.js, NestJS/Fastify, PostgreSQL, Drizzle, Socket.IO, Vitest, Testcontainers, Playwright, Docker Compose.
 
@@ -198,17 +198,17 @@
 
 ### Task 5.3: Realtime load suite
 
-**Objective:** 2,500 sockets, 50 msg/s 지속·200 msg/s burst, 1분 내 1,000 reconnect, slow client, noisy tenant를 시험한다.
+**Objective:** `docs/quality/release-profile-registry.md`에 따라 단일 gateway·1,000 sockets를 M1 blocking profile로 시험한다. 같은 resource envelope의 2,500 sockets는 non-blocking capacity profile로 별도 기록한다.
 
-### Task 5.4: Backup/restore and rolling deploy rehearsal
+### Task 5.4: Backup/restore and controlled restart rehearsal
 
-**Objective:** 실제 restore와 live socket resume를 실행해 RPO/RTO를 기록한다.
+**Objective:** 실제 restore와 단일 gateway controlled restart/resume를 실행해 RPO≤5분, RTO≤60분, accepted-message RPO=0을 검증한다. Multi-instance rolling/HA는 M1 범위가 아니다.
 
 ### Task 5.5: Accessibility and responsive review
 
 **Objective:** keyboard, focus, screen reader labels, reduced motion, mobile viewport를 검증한다.
 
-**Milestone 1 Exit Gate:** Chat correctness/reliability/product completeness gate가 모두 통과해야 Agent 작업을 시작한다.
+**Milestone 1 Exit Gate:** `M1-CORRECTNESS`, `M1-SECURITY`, `M1-UX`, `M1-OPS`, blocking `M1-CAPACITY`가 release registry 규칙대로 유효해야 Agent 작업을 시작한다.
 
 ---
 

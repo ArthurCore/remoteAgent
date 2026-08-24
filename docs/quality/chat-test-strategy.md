@@ -1,5 +1,7 @@
 # Chat Core 품질 및 테스트 전략 (AW-004)
 
+> **Normative authority:** `docs/contracts/sync-contract-v1.md` controls wire/sync terminology, `docs/contracts/chat-projection-semantics-v1.md` controls the reference model, and `docs/quality/release-profile-registry.md` controls blocking profiles, gate IDs, RPO/RTO, restart topology, evidence and waiver policy.
+
 ## 1. 목적과 범위
 
 이 문서는 Agent 없이도 매일 사용할 수 있는 사람용 Chat Core의 **실행 가능한 품질 계약**을 정의한다. 기능 목록의 존재가 아니라 PostgreSQL 정본, 권한 경계, 재접속 수렴, 사용성 및 운영 복구를 실제 시험으로 입증하는 것이 목표다.
@@ -63,7 +65,7 @@ CI lane:
 - **PR:** lint, typecheck, unit/property, integration, isolation smoke, Chromium E2E.
 - **merge:** 전체 isolation, Chromium/Firefox/WebKit E2E, accessibility, reliability.
 - **nightly:** 30분 load, reconnect storm, slow-client soak, restore rehearsal.
-- **release candidate:** immutable image로 전체 suite, 2시간 soak, backup/restore, N-1→N rolling deploy를 staging에서 실행한다.
+- **release candidate:** immutable image로 전체 suite, 2시간 soak, backup/restore, 단일 gateway controlled restart/resume를 staging에서 실행한다. N-1→N multi-instance rolling은 M1 이후 별도 profile이다.
 
 ## 4. 공통 harness와 판정 oracle
 
@@ -122,15 +124,15 @@ principal can observe object => same-tenant AND active membership AND object pol
 1. 동일 idempotency key를 직렬, 100-way 동시, timeout 후 retry로 총 1,000회 제출한다.
 2. 같은 key+같은 payload는 모두 같은 message ID/result를 반환해야 한다.
 3. 같은 key+다른 payload/aggregate는 명시적 conflict로 거부한다.
-4. 50개 producer가 한 channel에 총 10,000개 command를 보내고 message/event `seq`를 비교한다.
+4. 50개 producer가 한 channel에 총 10,000개 command를 보내고 durable `event_seq`를 비교한다.
 5. 서로 다른 20개 channel에 동시 전송해 sequence가 channel-local임을 확인한다.
 6. commit 직전/직후 API process와 PostgreSQL 연결을 끊어 accepted 시점 계약을 확인한다.
 
-**Exit gate:** 1,000 retry당 committed message/message-created logical event **각 1개**, message ID 불일치 **0**, payload key collision의 silent reuse **0**. 한 channel의 committed durable event 10,000개에서 duplicate `seq`, missing committed `seq`, fan-out order inversion **각 0**. `accepted`였으나 restore/requery되지 않는 message **0**, rollback된 transaction에 대한 accepted **0**. p95 message commit은 release load 조건에서 **300ms 이하**다.
+**Exit gate:** 1,000 retry당 committed message/message-created logical event **각 1개**, message ID 불일치 **0**, payload key collision의 silent reuse **0**. 한 channel의 committed durable event 10,000개에서 duplicate `event_seq`, missing committed event, fan-out order inversion **각 0**. `accepted`였으나 restore/requery되지 않는 message **0**, rollback된 transaction에 대한 accepted **0**. p95 message commit은 release load 조건에서 **300ms 이하**다.
 
 ### 5.3 Cursor resume와 history pagination
 
-- client를 임의 `seq`에서 끊고 disconnect 동안 create/edit/delete/reaction/thread 이벤트를 발생시킨 뒤 last contiguous cursor로 resume한다.
+- client를 임의 opaque cursor에서 끊고 disconnect 동안 create/edit/delete/reaction/thread 이벤트를 발생시킨 뒤 `last_applied_cursor`로 resume한다. Transport ACK는 checkpoint가 아니다.
 - event 수신 직후 ACK 전 kill, ACK 직후 kill, gateway restart, stale/unknown/future cursor를 각각 주입한다.
 - history pagination 중 insert/edit/delete를 수행하고 snapshot/cursor 계약에 따라 reference set과 비교한다.
 - 100회 reconnect cycle, cycle당 100개 event(총 10,000개)를 seeded random fault schedule로 실행한다.
@@ -254,7 +256,7 @@ staging과 production 동형 topology에서 immutable release image를 사용한
 
 수치 gate는 환경 크기를 숨기지 않는다. 결과 artifact에 instance/container resource, PostgreSQL 설정과 k6 summary를 포함한다.
 
-## 9. Backup/restore와 rolling deploy
+## 9. Backup/restore와 controlled restart
 
 ### 9.1 실제 backup/restore rehearsal
 
@@ -270,15 +272,15 @@ staging과 production 동형 topology에서 immutable release image를 사용한
 
 **Exit gate:** PITR 기준 **RPO 5분 이하**, restore 시작부터 readiness 및 smoke 완료까지 **RTO 60분 이하**. RPO window 이전 accepted message 유실 **0**, tenant 관계/checksum 오류 **0**, cross-tenant search/file 노출 **0**, corrupt/missing sampled object **0/1,000**. restore 후 새 message의 seq/id 충돌 **0**. nightly backup job 성공률은 최근 30회 중 **30/30**, restore rehearsal은 최소 월 1회 및 각 schema migration release마다 통과해야 한다.
 
-### 9.2 Rolling deploy rehearsal
+### 9.2 Controlled single-gateway restart rehearsal
 
-N-1 client/API/gateway/worker와 N release를 함께 띄운 뒤 1,000 sockets, 100 msg/s traffic을 유지하며 gateway→API→worker를 instance별 순차 교체한다. 각 instance는 readiness를 내린 뒤 drain하고, N-1/N event schema compatibility를 contract test로 먼저 확인한다. migration은 expand/contract 방식이며 destructive contract 단계는 N-1 process가 모두 제거된 뒤 별도 release에서만 허용한다.
+M1의 단일 API/Socket.IO gateway에 1,000 sockets와 100 commands/s를 유지한다. Readiness를 내리고 graceful termination 후 같은 candidate digest의 gateway 한 개를 교체·재시작한다. Client는 jittered reconnect와 `last_applied_cursor` resume를 수행한다. M1은 동시에 N-1/N gateway를 실행하거나 HA·zero-downtime rolling을 주장하지 않는다.
 
-**Exit gate:** rolling window의 accepted message 유실/중복 UI 적용/order inversion/unauthorized event **각 0**. sockets **99% 이상이 30초 이내**, 전부 **60초 이내** resume하고 수동 새로고침 필요 client **0**. unexpected 5xx/command error rate **0.1% 미만**, commit p95 **500ms 이하**, fan-out p95 **2초 이하**(deploy window 임시 상한), outbox oldest age **30초 미만**이며 종료 후 **60초 이내 5초 미만**으로 회복한다. readiness 이전 traffic 수신 및 termination grace 초과 강제 종료 **0**. rollback N으로 복귀하는 동일 rehearsal도 release마다 1회 통과해야 한다.
+**Exit gate:** accepted message 유실, duplicate logical UI apply, order inversion, unauthorized event는 각각 0이다. 95%의 socket이 15초 이내, 99%가 30초 이내, 전부 60초 이내 resume하며 수동 새로고침은 0이다. Outbox oldest age는 종료 후 60초 이내 5초 미만으로 회복한다. Multi-instance rolling/rollback evidence는 이후 HA profile에서 별도로 요구한다.
 
 ## 10. Release exit gates와 증거
 
-### Gate A — Chat correctness/security (모두 blocking)
+### `M1-CORRECTNESS`와 `M1-SECURITY`
 
 - idempotency 1,000 retry, 10,000 ordered event, cursor 100-cycle suite 통과
 - unread/mention/thread property/model suite mismatch 0
@@ -286,24 +288,24 @@ N-1 client/API/gateway/worker와 N release를 함께 띄운 뒤 1,000 sockets, 1
 - tenant HTTP/WS/search/file/admin leakage 0
 - outbox crash injection에서 accepted loss 및 duplicate apply 0
 
-### Gate B — Chat reliability (모두 blocking)
+### blocking `M1-CAPACITY`
 
 - 1,000 socket standard load의 latency/error threshold 통과
 - reconnect storm과 slow-client bound 통과
 - PostgreSQL/gateway restart 뒤 accepted message loss 0
 - 2시간 release soak와 noisy-tenant isolation threshold 통과
 
-### Gate C — Product completeness (모두 blocking)
+### `M1-UX`
 
 - Playwright core journey 3 engines 및 responsive matrix 100% 통과
 - notification hint fault suite에서 최종 수렴 mismatch 0
 - accessibility 수치와 manual screen-reader/keyboard checklist 통과
 - invite부터 첫 accepted message usability gate 통과
 
-### Gate D — Operations (모두 blocking)
+### `M1-OPS`
 
 - RPO ≤ 5분, RTO ≤ 60분의 실제 restore evidence
-- N-1→N rolling deploy와 rollback에서 loss/order/authorization 오류 0
+- 단일 gateway controlled restart/resume에서 loss/order/authorization 오류 0
 - schema/event contract backward compatibility 통과
 
 release manifest에는 다음 artifact를 링크한다.
@@ -315,9 +317,9 @@ release manifest에는 다음 artifact를 링크한다.
 - k6 raw summary, latency histogram, infrastructure metrics
 - fault injection timeline과 client cursor reconciliation report
 - backup ID, PITR target, restore timestamps/checksum report
-- rolling deploy instance timeline과 N/N-1 compatibility report
+- controlled restart instance timeline과 client cursor reconciliation report
 
-**최종 판정 규칙:** Gate A–D 중 하나라도 실패하거나 evidence가 없으면 release 및 Agent 단계 진입은 **FAIL**이다. waiver는 보안 격리, accepted durability, message loss/order, backup restore에 허용하지 않는다. 그 외 waiver는 owner, 영향, 만료일(최대 14일), rollback/mitigation과 추적 issue가 있어야 하며 다음 release에서 자동 만료된다.
+**최종 판정 규칙:** release registry의 M1 blocking gate 중 하나라도 실패하거나 evidence가 없으면 release 및 Agent 단계 진입은 **FAIL**이다. Waiver policy와 first-release bootstrap도 release registry가 단독으로 통제한다.
 
 ## 11. 구현 순서
 

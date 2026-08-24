@@ -1,5 +1,15 @@
 # Chat-first 제품 방향 재검토 v2
 
+## Normative foundation contracts
+
+구현과 release 판정에서 아래 문서가 이 방향 문서보다 우선한다.
+
+- `docs/contracts/sync-contract-v1.md` — event envelope, cursor, snapshot/barrier/live sync
+- `docs/contracts/chat-projection-semantics-v1.md` — unread, mention, thread, edit/delete, membership projection
+- `docs/quality/release-profile-registry.md` — M1/M2 blocking profile과 evidence
+- `docs/product/chat-ux-gate-registry.md` — 179개 UX criterion의 tier/evidence/owner
+- `docs/security/source-and-provenance-policy.md` — 제품 소스와 고객 repository 소스 경계
+
 ## 결론
 
 기존 청사진은 보안·운영 원칙은 유효하지만, 사용자가 중요하게 생각하지 않는 Shared Mind 계열의 Task/Handoff/Decision/Evidence와 오케스트레이션을 너무 일찍 중심에 두었다. 또한 Rocket.Chat CE를 파일럿 Conversation Plane으로 두고 별도 Agent Control Plane을 운영하면 빠른 데모에는 유리하지만, 장기 제품으로는 UX·데이터·권한·운영이 이중화된다.
@@ -264,9 +274,10 @@ Agent streaming delta는 best-effort ephemeral event로 전송하고, 정상 종
 
 ### Gate B — Chat reliability
 
-- 2,500 concurrent socket 부하에서 p95 message commit 300ms 이하
+- M1 blocking profile은 단일 gateway·1,000 concurrent socket에서 p95 message commit 300ms 이하
+- 2,500 socket은 같은 resource envelope에서 수집하는 non-blocking capacity evidence
 - online fan-out p95 1초 이하
-- gateway rolling restart에서 client 자동 복구
+- 단일 gateway controlled restart에서 client 자동 복구; M1은 HA나 multi-instance rolling을 주장하지 않음
 - PostgreSQL restart 후 accepted message 유실 0
 - slow-client backpressure 시험 통과
 - 1분 내 1,000 client reconnect storm에서 자동 수렴

@@ -6,6 +6,10 @@
 - **Decision scope:** Milestone 1 Chat Core and the boundary required for Milestone 2 personal Agent attachment
 - **Supersedes:** Rocket.Chat-as-product-core and early Agent Control Plane assumptions
 
+### Normative subordinate contracts
+
+The implementation MUST use `docs/contracts/sync-contract-v1.md` for public field names (`event_seq`, `event_type`, `occurred_at`), opaque cursors, application checkpoints, transport ACKs, and the snapshot/subscription/barrier handshake. It MUST use `docs/contracts/chat-projection-semantics-v1.md` for unread, mention, thread, edit/delete, membership, private read state, and cache-purge semantics. `docs/quality/release-profile-registry.md` controls release thresholds when this ADR contains an older illustrative number or gate label.
+
 ## 1. Context and decision drivers
 
 The product must succeed in this order:
