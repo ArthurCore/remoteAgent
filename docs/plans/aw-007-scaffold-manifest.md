@@ -48,6 +48,7 @@ The lockfile is authoritative. Root `package.json` pins exact direct versions ra
 | Vitest / coverage-v8 | `4.1.11` |
 | `tsx` | `4.23.12` |
 | dependency-cruiser | `18.2.0` |
+| `@aws-sdk/client-s3` | `3.1116.0` |
 
 Container images verified on the current arm64 Docker runtime:
 
@@ -64,6 +65,7 @@ AW-007 creates exactly this implementation surface in addition to existing docum
 ```text
 .
 ├── .dockerignore
+├── .dependency-cruiser.cjs
 ├── .editorconfig
 ├── .env.example
 ├── .gitignore
@@ -99,11 +101,15 @@ AW-007 creates exactly this implementation surface in addition to existing docum
 │   │   ├── tsconfig.json
 │   │   ├── vitest.config.ts
 │   │   ├── app
-│   │   │   ├── api/health/route.ts
+│   │   │   ├── api
+│   │   │   │   └── health
+│   │   │   │       └── route.ts
 │   │   │   ├── globals.css
 │   │   │   ├── layout.tsx
 │   │   │   └── page.tsx
 │   │   └── test
+│   │       ├── fixtures
+│   │       │   └── forbidden-db-import.ts
 │   │       └── health.spec.ts
 │   └── worker
 │       ├── package.json
@@ -111,9 +117,11 @@ AW-007 creates exactly this implementation surface in addition to existing docum
 │       ├── vitest.config.ts
 │       ├── src
 │       │   ├── health-server.ts
-│       │   └── main.ts
+│       │   ├── main.ts
+│       │   └── storage-init.ts
 │       └── test
-│           └── health.spec.ts
+│           ├── health.spec.ts
+│           └── storage-init.spec.ts
 ├── packages
 │   ├── chat-core
 │   │   ├── package.json
@@ -141,13 +149,14 @@ AW-007 creates exactly this implementation surface in addition to existing docum
 │       └── src/vitest.ts
 ├── scripts
 │   ├── assert-aw007-tree.mjs
+│   ├── assert-boundary-fixture.mjs
 │   ├── compose.sh
 │   ├── container-smoke.sh
 │   └── wait-for-url.mjs
 └── docs/operations/container-image-lock.md
 ```
 
-`packages/*/src/index.ts` establishes a package boundary and contains only truthful exports used by the scaffold. It must not claim to implement contracts, repositories, migrations, UI components, or domain behavior. Empty passing tests are forbidden.
+`packages/*/src/index.ts` establishes a package boundary and contains only truthful exports used by the scaffold. It must not claim to implement contracts, repositories, migrations, UI components, or domain behavior. Empty passing tests are forbidden. The storage initializer's exact source and test paths are `apps/worker/src/storage-init.ts` and `apps/worker/test/storage-init.spec.ts`; its built Compose entry is `apps/worker/dist/storage-init.js`.
 
 ## 4. Package and module boundaries
 
@@ -176,7 +185,7 @@ AW-007 dependencies:
 - `apps/web` never imports `db` or server-only config;
 - future vendor-Agent SDK imports are forbidden in AW-007.
 
-`dependency-cruiser` includes at least one intentionally invalid fixture under its own test fixture directory and the real boundary command must prove the fixture is rejected. The invalid fixture is not compiled into product output.
+`apps/web/test/fixtures/forbidden-db-import.ts` intentionally imports `@agent-workspace/db`. The fixture is excluded from the web TypeScript/Next/Vitest product graph, but `scripts/assert-boundary-fixture.mjs` runs dependency-cruiser against that exact path and fails unless the forbidden dependency is rejected. The regular boundary scan excludes this intentional fixture so it can validate the real graph independently.
 
 ## 5. Root script namespace
 
@@ -204,7 +213,7 @@ AW-007 root `package.json` contains only commands with real implementation and a
 }
 ```
 
-The tree above also requires `scripts/assert-boundary-fixture.mjs` and `.dependency-cruiser.cjs`; these are included in the scaffold even though omitted from the condensed tree diagram and are checked by `assert-aw007-tree.mjs`.
+The tree above is exhaustive for the AW-007 implementation surface. `scripts/assert-aw007-tree.mjs` checks every listed path, workspace package name, canonical root script, and forbidden extra future script. Any AW-007 implementation file outside this tree requires a manifest correction and reviewer approval before it is added.
 
 AW-007 `pnpm ci` does **not** invoke:
 
@@ -226,7 +235,7 @@ Those scripts must not exist as green placeholders.
 
 | Script/capability | First owning card | Becomes mandatory when |
 |---|---|---|
-| `format:check`, `lint`, `typecheck`, `boundaries:check`, `test:unit`, `scaffold:check`, `build`, AW-007 `ci` | AW-007 | AW-007 implementation |
+| `dev`, `build`, `clean`, `format`, `format:check`, `lint`, `typecheck`, `boundaries:check`, `test:unit`, `scaffold:check`, `compose:up`, `compose:down`, `compose:reset`, `container:smoke`, `ci` | AW-007 | AW-007 implementation |
 | `contracts:check`, generated JSON Schema/OpenAPI conformance | AW-008 | Contract implementation lands |
 | `db:migrate`, `db:migrate:check`, `db:migrate:test-empty`, `db:schema:assert-clean`, `test:integration` | AW-008 | First schema/migration lands |
 | `test:isolation`, tenant/workspace/channel browser/API smoke | AW-009 | Identity/tenancy/channel vertical slice lands |
@@ -284,9 +293,9 @@ fi
 
 | Service | Image/command | Required behavior |
 |---|---|---|
-| `postgres` | `postgres:17.11-bookworm` | named volume; `pg_isready`; loopback-exposed dev port only |
-| `rustfs` | `rustfs/rustfs:v1.0.0` | S3-compatible local storage; named volume; dev ports 9000/9001 |
-| `storage-init` | AW-007 runtime image | idempotently waits for S3 and creates quarantine/clean buckets via AWS SDK; exits 0 only when both are visible |
+| `postgres` | `postgres:17.11-bookworm@sha256:84560e3b9c6874893fc4e2854f5dc3e7c1a37bc9d1dfd7a8c641310ae22ba5ad` | named volume; `pg_isready`; loopback-exposed dev port only |
+| `rustfs` | `rustfs/rustfs:1.0.0-rc.3@sha256:800cf3f352a0a27e3275ca854a51f0027975d7acc7a0d52089a35bcc9fcbf0b5` | local-only S3-compatible storage; named volume; dev ports 9000/9001 |
+| `storage-init` | AW-007 runtime image running `apps/worker/dist/storage-init.js` from `apps/worker/src/storage-init.ts` | idempotently waits for S3 and creates quarantine/clean buckets via AWS SDK; exits 0 only when both are visible |
 | `api` | AW-007 image, API role | `/health/live` and `/health/ready`; port 3001 |
 | `worker` | same image, worker role | `/health/live` and `/health/ready`; internal port 3002 |
 | `web` | same image, web role | `/api/health`; port 3000 |

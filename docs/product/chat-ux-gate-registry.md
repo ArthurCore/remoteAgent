@@ -304,44 +304,32 @@ or multiple owners are not valid.
 
 ## 5. First-release bootstrap for the 30-run history gate
 
-The “last 30 nightly backup jobs = 30/30” rule in
-[`chat-test-strategy.md` §9.1](../quality/chat-test-strategy.md) is operational
-history and is **not** another UX criterion ID. It remains non-waivable, but a
-new deployment cannot possess history from before its production-equivalent
-backup pipeline existed. Use this bounded bootstrap rather than inventing 30
-runs or granting a waiver:
+This UX registry does not create a second operational bootstrap. The complete
+and sole authority is
+[`release-profile-registry.md` §12](../quality/release-profile-registry.md).
+For mechanical consistency, its current contract is summarized exactly as
+follows:
 
-1. **Normal rule:** after 30 scheduled nightly opportunities exist, the 30 most
-   recent scheduled jobs must be 30/30 successful. Manually triggered or
-   accelerated jobs never count toward that denominator.
-2. **Bootstrap entry:** record `backup_history_started_at` when the
-   production-equivalent scheduled pipeline, storage, retention, monitoring,
-   and alert route are all enabled. Bootstrap may start only once; changing a
-   schedule or resetting the counter does not erase failures.
-3. **Earliest initial release:** require at least seven consecutive scheduled
-   nightlies and every available scheduled result successful (`n/n`, `7 <= n <
-   30`). A failed, missed, disabled, or unclassified scheduled run fails the
-   gate; infrastructure failures are not silently removed from the denominator.
-4. **Compensating proof:** before the initial release, complete three full
-   restores from three distinct scheduled backup IDs created on at least three
-   different calendar dates, including the oldest available and newest
-   available backup. Each restore uses a clean disposable environment and must
-   pass the §9.1 RPO/RTO, row/checksum, tenant-isolation, search/file,
-   attachment, cursor-resume, and new-message checks. These restores supplement
-   confidence but do not count as nightly runs.
-5. **Manifest fields:** `AW-012` records `bootstrap=true`,
-   `backup_history_started_at`, `history_observed=n`, `history_success=n`,
-   `history_required=30`, `bootstrap_remaining=30-n`, all backup/restore IDs,
-   alert-drill result, and artifact links in the release manifest.
-6. **Transition:** scheduled collection continues without reset. Every release
-   candidate while `n < 30` must still have all available runs successful and a
-   fresh successful restore of the newest backup. At the 30th scheduled
-   opportunity bootstrap expires automatically and the normal rolling 30/30
-   rule applies.
-7. **Failure behavior:** any failed/missed scheduled job, failed restore,
-   checksum/isolation error, or RPO/RTO miss blocks release. The bootstrap
-   changes only the amount of history that can exist; it does not waive backup
-   correctness or restore evidence.
+1. Record `backup_history_started_at`, then obtain at least seven consecutive
+   scheduled production-shaped staging backup/PITR points. Failed, missed,
+   disabled, or unclassified runs fail the sequence; manual/accelerated runs do
+   not count.
+2. Before initial release, perform exactly two isolated restores from distinct
+   scheduled backup/recovery IDs on different UTC calendar dates: the newest
+   available recovery point and an independently selected older PITR point.
+   At least one uses the full timed 1,000,000-message/10-GiB fixture; both run in
+   clean disposable environments and pass the normative RPO/RTO, integrity,
+   isolation, search/file, attachment, cursor-resume, and new-message checks.
+3. Record the bootstrap flag, history counts, IDs, UTC dates, full-fixture
+   selection, alert drill, timestamps, and artifacts in the release manifest.
+4. Once 30 scheduled production jobs exist, bootstrap expires automatically
+   and the rolling scheduled 30/30 rule applies without counter reset. Monthly
+   restore evidence and every schema-migration restore expire after 30 days;
+   while history is below 30, every release candidate also restores the newest
+   backup.
+5. A scheduled-job failure, restore failure, RPO/RTO miss, or integrity or
+   isolation mismatch blocks release. This bootstrap is not a waiver and does
+   not create another UX criterion ID.
 
 ## 6. Validation algorithm and command
 
