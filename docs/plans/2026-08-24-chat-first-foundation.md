@@ -4,7 +4,7 @@
 
 **Goal:** Agent 없이도 팀이 사용할 수 있는 상용 품질의 채팅 기반을 만들고, 후속 Local Agent 연결이 가능한 안정적인 principal·event 경계를 확보한다.
 
-**Architecture:** 자체 TypeScript modular monolith와 PostgreSQL을 정본으로 사용한다. HTTP command와 WebSocket event를 분리하고, 채널별 sequence와 cursor resume로 웹·모바일 동기화를 보장한다. Agent, Shared Mind, 제품 Kanban, Orchestrator는 Chat Foundation 합격 후에만 추가한다.
+**Architecture:** 자체 TypeScript modular monolith와 PostgreSQL을 정본으로 사용한다. HTTP command와 WebSocket event를 분리하고, 채널의 모든 사용자 가시 mutation을 포괄하는 `event_seq`, snapshot high-watermark, cursor resume로 웹·모바일 동기화를 보장한다. Agent, Shared Mind, 제품 Kanban, Orchestrator는 Chat Foundation 합격 후에만 추가한다.
 
 **Tech Stack:** pnpm, Turborepo, TypeScript, Next.js, NestJS/Fastify, PostgreSQL, Drizzle, Socket.IO, Vitest, Testcontainers, Playwright, Docker Compose.
 
@@ -52,6 +52,12 @@
 
 **Verification:** invalid version, oversized payload, missing idempotency key, unknown event rejection tests.
 
+### Task 0.4: Snapshot and delta sync contract
+
+**Objective:** snapshot의 `high_watermark`와 그 이후 mutation journal delta 사이에 race가 없는 protocol을 정의한다.
+
+**Acceptance:** duplicate/out-of-order delta 적용, stale cursor의 `resync_required`, membership revoke의 subscription 종료와 cache purge event를 contract test로 검증한다.
+
 ---
 
 ## Epic 1 — Identity, tenant, workspace, channel
@@ -84,11 +90,11 @@
 
 ## Epic 2 — Durable message core
 
-### Task 2.1: Message schema and per-channel sequence
+### Task 2.1: Message schema and per-channel event sequence
 
-**Objective:** message, version, mention, reaction, read cursor schema와 channel sequence allocation을 구현한다.
+**Objective:** message, version, mention, reaction, read cursor, conversation mutation journal과 channel `event_seq` allocation을 구현한다.
 
-**Acceptance:** concurrent inserts have unique contiguous ordering semantics; no cross-channel sequence assumption.
+**Acceptance:** create/edit/delete/reaction/thread/membership mutation이 하나의 채널 event order에 들어가며 concurrent inserts는 unique ordering을 갖는다. 채널 간 global order는 약속하지 않는다.
 
 ### Task 2.2: Idempotent message creation
 
@@ -138,9 +144,9 @@
 
 ### Task 3.4: Resume and catch-up
 
-**Objective:** reconnect cursor 이후 delta를 DB에서 복구한다.
+**Objective:** snapshot high-watermark 또는 reconnect cursor 이후 모든 mutation delta를 DB에서 복구한다.
 
-**Acceptance:** gateway kill/restart 중 message 누락·순서 역전 0.
+**Acceptance:** gateway kill/restart 중 event 누락·순서 역전 0, fresh snapshot과 incremental state checksum이 동일하다.
 
 ### Task 3.5: Backpressure and presence
 
@@ -192,7 +198,7 @@
 
 ### Task 5.3: Realtime load suite
 
-**Objective:** 1,000 sockets, reconnect storm, slow client, noisy tenant를 시험한다.
+**Objective:** 2,500 sockets, 50 msg/s 지속·200 msg/s burst, 1분 내 1,000 reconnect, slow client, noisy tenant를 시험한다.
 
 ### Task 5.4: Backup/restore and rolling deploy rehearsal
 
@@ -214,7 +220,7 @@
 
 ### Task 6.2: Pairing protocol
 
-**Objective:** single-use code, local device key, proof-of-possession, short-lived credential, revoke를 구현한다.
+**Objective:** secret 없는 static installer, 브라우저 device approval, single-use human code, local device key, proof-of-possession, short-lived credential, revoke를 구현한다.
 
 ### Task 6.3: Connector protocol and SDK
 
@@ -224,9 +230,13 @@
 
 **Objective:** `@agent` 입력을 받아 streaming response를 채널에 게시하고 cancel/reconnect를 처리한다.
 
+**Acceptance:** streaming delta는 ephemeral이고 최종 또는 interrupted 메시지 하나만 durable commit한다. Vendor session ID와 raw event는 adapter 밖의 authorization/routing/UI 계약에 사용하지 않는다.
+
 ### Task 6.5: Five-minute onboarding
 
-**Objective:** Agent 생성→설치→pair→channel 선택→online 흐름을 5분 안에 완료하는 UI/CLI를 구현한다.
+**Objective:** 현재 채널에서 Agent 추가→signed installer→브라우저 device 승인→Claude 자동 진단→로컬 folder picker→read/respond-only preset→연결 시험→online 흐름을 5분 안에 완료한다.
+
+**Acceptance:** install command와 shell history에 enrollment secret이 없고, cloud에는 raw filesystem path가 없으며, 도움 없는 성공률 80% 이상·안내 포함 95% 이상을 usability test로 검증한다.
 
 ### Task 6.6: Connector security test
 

@@ -58,6 +58,19 @@
 - tenant 간 접근 negative test
 - rolling deploy 중 WebSocket reconnect/resume
 
+추가 검토에서 `seq`를 메시지 생성에만 부여하면 edit/delete/reaction/thread/membership mutation을 완전히 복구할 수 없다는 문제가 확인됐다. 따라서 채널에는 **모든 사용자 가시 mutation을 포함하는 `event_seq`**를 부여한다.
+
+초기 동기화 계약은 다음과 같다.
+
+```text
+snapshot 조회
+→ snapshot.high_watermark 획득
+→ high_watermark 이후 delta 구독·적용
+→ cursor가 retention 범위 밖이면 resync_required
+```
+
+Client는 duplicate와 out-of-order event를 안전하게 적용해야 한다. 권한이 회수되면 WebSocket subscription을 종료하고 이후 history/search/file 접근을 거부하며 local cache purge를 지시한다.
+
 ### P1 — 모바일을 너무 늦게 고려했다
 
 모바일 앱 출시는 3단계지만, sync protocol과 API는 처음부터 mobile-compatible해야 한다.
@@ -90,6 +103,21 @@ Agent v1 최소 계약:
 8. cancel
 9. reconnect/catch-up
 10. revoke
+
+온보딩은 progressive disclosure를 사용한다. 처음부터 이름·역할·여러 채널·tool 권한을 모두 묻지 않는다.
+
+```text
+현재 채널에서 Add local agent → Claude Code
+→ secret이 포함되지 않은 고정 installer 실행
+→ Connector가 로그인된 브라우저를 열어 device 승인
+→ Claude Code 설치·로그인 상태 자동 진단
+→ 로컬 folder picker로 repository 선택
+→ 기본 read/respond-only preset
+→ mention/stream/cancel/reconnect 연결 시험
+→ online
+```
+
+짧은 숫자 코드는 사용자 확인용이고 실제 보안은 고엔트로피 device credential과 로컬 생성 key의 possession proof가 담당한다. Cloud에는 raw filesystem path 대신 opaque repository ID와 표시 이름만 저장한다.
 
 ### P1 — 관리형 서비스 선택이 이식성을 침해할 수 있었다
 
@@ -194,6 +222,8 @@ packages/config      lint/tsconfig/env
 - PostgreSQL full-text search initially
 - Redis only after horizontal gateway scaling is measured
 
+전체 event sourcing은 도입하지 않는다. 현재 상태 table과 작고 명확한 conversation mutation journal을 함께 사용한다.
+
 ### Chat event contract
 
 Transport와 domain event를 분리한다.
@@ -211,7 +241,7 @@ Server event:
 - event_id
 - tenant_id
 - channel_id
-- seq
+- event_seq
 - event_type
 - actor
 - payload
@@ -219,6 +249,8 @@ Server event:
 ```
 
 Socket.IO ACK는 transport 수신 확인일 뿐 durable commit 확인이 아니다. `message.accepted`는 DB commit 이후에만 보낸다.
+
+Agent streaming delta는 best-effort ephemeral event로 전송하고, 정상 종료 시 최종 메시지 하나만 durable commit한다. 중단되면 하나의 `interrupted` 최종 상태를 저장한다.
 
 ## 품질 게이트
 
@@ -232,11 +264,14 @@ Socket.IO ACK는 transport 수신 확인일 뿐 durable commit 확인이 아니�
 
 ### Gate B — Chat reliability
 
-- 1,000 concurrent socket 부하에서 p95 message commit 300ms 이하
+- 2,500 concurrent socket 부하에서 p95 message commit 300ms 이하
 - online fan-out p95 1초 이하
 - gateway rolling restart에서 client 자동 복구
 - PostgreSQL restart 후 accepted message 유실 0
 - slow-client backpressure 시험 통과
+- 1분 내 1,000 client reconnect storm에서 자동 수렴
+- snapshot과 incremental sync 상태 checksum 불일치 0
+- 1,000 event catch-up p95 5초 이하
 
 ### Gate C — Product completeness
 
@@ -254,6 +289,10 @@ Socket.IO ACK는 transport 수신 확인일 뿐 durable commit 확인이 아니�
 - Connector 재시작 후 동일 Agent identity로 복구
 - revoke 즉시 새 command 차단
 - Claude vendor adapter 실패가 Chat Core에 영향을 주지 않음
+- 도움 없는 attach 성공률 80% 이상, 안내 포함 95% 이상
+- signed/notarized installer와 자동 health check
+- static install command에 enrollment secret 0
+- member enrollment은 workspace policy로 통제하며 무조건 관리자 작업으로 만들지 않음
 
 ## 상용 출시 순서
 
