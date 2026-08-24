@@ -25,7 +25,7 @@
 | AW-006A | Canonical sync contract v1 | architect | AW-006 | `docs/contracts/sync-contract-v1.md` | DONE |
 | AW-006B | Projection/reference-reducer semantics | architect,tester | AW-006 | `docs/contracts/chat-projection-semantics-v1.md` | DONE |
 | AW-006C | Release profile/gate registry | tester,devops | AW-006 | `docs/quality/release-profile-registry.md` | DONE |
-| AW-006D | Frozen AW-007 scaffold manifest | architect,coder | AW-006 | `docs/plans/aw-007-scaffold-manifest.md` | RUNNING |
+| AW-006D | Frozen AW-007 scaffold manifest | architect,coder | AW-006 | `docs/plans/aw-007-scaffold-manifest.md` | DONE |
 | AW-006E | Source and provenance policy | researcher,devops | AW-006 | `docs/security/source-and-provenance-policy.md` | DONE |
 | AW-006F | Tiered UX gate registry | ux-writer,tester | AW-006 | `docs/product/chat-ux-gate-registry.md` | DONE |
 | AW-007 | pnpm monorepo·API/Web/DB scaffold | coder | AW-001, AW-004, AW-005, AW-006A..F, AW-006 re-review approval | 빌드·lint·test 가능한 코드 | TODO |

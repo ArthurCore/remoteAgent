@@ -51,18 +51,18 @@ AW-007 should create `docker-compose.yml` with these required services:
 | Service | Required image/build | Purpose | Persistent locally? |
 |---|---|---|---|
 | `postgres` | Pinned PostgreSQL major and patch-compatible tag | system of record | Named volume |
-| `minio` | Pinned digest | S3-compatible quarantine and clean buckets | Named volume |
-| `minio-init` | One-shot client | Idempotently create buckets and lifecycle policy | No |
+| `rustfs` | Pinned `rustfs/rustfs` digest | Maintained S3-compatible local object store | Named volume |
+| `storage-init` | Application runtime image, one-shot command | Idempotently wait for S3 and create quarantine/clean buckets | No |
 | `api` | Repository Dockerfile target | HTTP/Socket.IO | No |
 | `worker` | Same runtime image, different command | outbox/jobs | No |
 | `web` | Repository Dockerfile target | browser UI | No |
 
-Optional profiles may add `mailpit` for email inspection and `otel-collector` for observability development. Malware scanning can use a local scanner profile when attachment work begins; uploads must remain `quarantined` until a scanner marks them clean. MinIO is a local compatibility tool, not a production recommendation.
+Optional profiles may add `mailpit` for email inspection and `otel-collector` for observability development. Malware scanning can use a local scanner profile when attachment work begins; uploads must remain `quarantined` until a scanner marks them clean. MinIO Community is not a new-project baseline because its upstream repository is archived; RustFS is local compatibility infrastructure, not the production recommendation.
 
 Compose requirements:
 
 - Pin image major versions; production images are pinned by digest.
-- Add health checks for PostgreSQL, API `/health/ready`, web, and MinIO.
+- Add health checks for PostgreSQL, API/worker `/health/ready`, web, and the RustFS-backed bucket initialization path.
 - Use `depends_on: condition: service_healthy` only for local startup convenience; application code still retries dependencies with bounded exponential backoff.
 - Bind stateful ports to `127.0.0.1`, not all interfaces.
 - Run application containers as a non-root UID, use a read-only root filesystem where practical, and mount only explicit temporary directories.
@@ -76,8 +76,8 @@ corepack enable
 pnpm install --frozen-lockfile
 cp .env.example .env.local
 
-docker compose up -d postgres minio minio-init
-docker compose ps
+scripts/compose.sh up -d postgres rustfs storage-init
+scripts/compose.sh ps
 pnpm db:migrate
 pnpm dev
 ```
