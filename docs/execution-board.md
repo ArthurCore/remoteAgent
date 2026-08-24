@@ -16,12 +16,12 @@
 
 | ID | Card | Assignee | Depends on | Deliverable | Status |
 |---|---|---|---|---|---|
-| AW-001 | Chat Core ADR과 모듈 경계 | architect | - | `docs/architecture/chat-core-adr.md` | RUNNING |
-| AW-002 | 사람용 Chat UX·완성도 acceptance spec | ux-writer | - | `docs/product/chat-ux-acceptance.md` | RUNNING |
-| AW-003 | 소스·라이선스·벤치마크 채택표 | researcher | - | `docs/research/source-adoption-matrix.md` | RUNNING |
-| AW-004 | correctness/realtime/security test strategy | tester | - | `docs/quality/chat-test-strategy.md` | RUNNING |
-| AW-005 | local/staging/production 운영 설계 | devops | - | `docs/operations/platform-plan.md` | RUNNING |
-| AW-006 | v2 방향과 5개 설계 문서 통합 검토 | reviewer | AW-001..005 | `docs/reviews/foundation-review.md` | TODO |
+| AW-001 | Chat Core ADR과 모듈 경계 | architect | - | `docs/architecture/chat-core-adr.md` | DONE |
+| AW-002 | 사람용 Chat UX·완성도 acceptance spec | ux-writer | - | `docs/product/chat-ux-acceptance.md` | DONE |
+| AW-003 | 소스·라이선스·벤치마크 채택표 | researcher | - | `docs/research/source-adoption-matrix.md` | DONE |
+| AW-004 | correctness/realtime/security test strategy | tester | - | `docs/quality/chat-test-strategy.md` | DONE |
+| AW-005 | local/staging/production 운영 설계 | devops | - | `docs/operations/platform-plan.md` | DONE |
+| AW-006 | v2 방향과 5개 설계 문서 통합 검토 | reviewer | AW-001..005 | `docs/reviews/foundation-review.md` | RUNNING |
 | AW-007 | pnpm monorepo·API/Web/DB scaffold | coder | AW-001, AW-004, AW-005, AW-006 | 빌드·lint·test 가능한 코드 | TODO |
 | AW-008 | contracts·DB foundation 구현 | coder | AW-007 | Zod contracts, Drizzle schema, migrations, tests | TODO |
 | AW-009 | tenant/workspace/channel vertical slice | coder | AW-008 | API+Web E2E | TODO |
