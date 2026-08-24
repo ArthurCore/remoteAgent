@@ -56,7 +56,7 @@
 
 - 메시지 영구 저장 후에만 `accepted` 반환
 - client idempotency key로 재전송 중복 방지
-- 채널별 단조 증가 `seq`
+- 채널별 단조 증가 `event_seq`
 - reconnect 시 cursor 이후 delta 복구
 - 모든 unread/mention/thread count가 재로그인 후 동일
 - edit/delete/reaction/thread event가 모든 device에서 수렴
@@ -66,7 +66,7 @@
 - 검색 결과의 tenant/channel 권한 재검증
 - mobile push는 힌트이며 앱이 서버에서 정본을 다시 fetch
 - tenant 간 접근 negative test
-- rolling deploy 중 WebSocket reconnect/resume
+- 단일 gateway controlled restart 중 WebSocket reconnect/resume
 
 추가 검토에서 `seq`를 메시지 생성에만 부여하면 edit/delete/reaction/thread/membership mutation을 완전히 복구할 수 없다는 문제가 확인됐다. 따라서 채널에는 **모든 사용자 가시 mutation을 포함하는 `event_seq`**를 부여한다.
 
@@ -264,7 +264,7 @@ Agent streaming delta는 best-effort ephemeral event로 전송하고, 정상 종
 
 ## 품질 게이트
 
-### Gate A — Chat correctness
+### `M1-CORRECTNESS`와 `M1-SECURITY`
 
 - 중복 create retry 1,000회에서 중복 message 0
 - reconnect/resume 후 누락·순서 역전 0
@@ -272,7 +272,7 @@ Agent streaming delta는 best-effort ephemeral event로 전송하고, 정상 종
 - edit/delete/reaction multi-device convergence
 - cross-tenant API/WS/file/search 접근 전부 거부
 
-### Gate B — Chat reliability
+### blocking `M1-CAPACITY`
 
 - M1 blocking profile은 단일 gateway·1,000 concurrent socket에서 p95 message commit 300ms 이하
 - 2,500 socket은 같은 resource envelope에서 수집하는 non-blocking capacity evidence
@@ -284,7 +284,7 @@ Agent streaming delta는 best-effort ephemeral event로 전송하고, 정상 종
 - snapshot과 incremental sync 상태 checksum 불일치 0
 - 1,000 event catch-up p95 5초 이하
 
-### Gate C — Product completeness
+### `M1-UX`
 
 - 새 사용자가 초대부터 첫 메시지까지 3분 이내
 - 채널 생성·초대·thread·검색·파일·알림 end-to-end
@@ -292,7 +292,7 @@ Agent streaming delta는 best-effort ephemeral event로 전송하고, 정상 종
 - responsive mobile web
 - 운영자 audit·ban/deactivate·export 최소 기능
 
-### Gate D — Agent attachment
+### `M2-AGENT`
 
 - 새 Agent가 설치 시작부터 online까지 5분 이내
 - 토큰을 수동 복사하지 않음

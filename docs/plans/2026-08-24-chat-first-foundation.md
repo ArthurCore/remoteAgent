@@ -140,7 +140,7 @@
 
 ### Task 3.3: Ordered fan-out
 
-**Objective:** channel `seq` 순서로 event를 전송하고 highest contiguous ACK를 처리한다.
+**Objective:** channel `event_seq` 순서로 event를 전송한다. Client는 reducer 적용 후 opaque `last_applied_cursor`를 원자적으로 저장하며, Socket.IO transport ACK는 application checkpoint로 사용하지 않는다.
 
 ### Task 3.4: Resume and catch-up
 

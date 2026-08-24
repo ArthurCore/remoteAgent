@@ -597,7 +597,7 @@ SELECT * FROM pg_locks WHERE NOT granted;
 2. Measure oldest unprocessed row, pending count, attempts, and failing event type.
 3. Pause poison event class or dependent side effect; do not delete rows.
 4. Scale worker concurrency only within database connection/lock limits.
-5. Replay idempotently, verify channel `seq` order and duplicate-tolerant consumers.
+5. Replay idempotently, verify channel `event_seq` order and duplicate-tolerant consumers.
 6. Reconcile committed messages against outbox rows.
 
 ### 12.4 Suspected tenant isolation or secret incident

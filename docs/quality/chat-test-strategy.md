@@ -15,7 +15,7 @@
 - PostgreSQL transactional outbox
 - attachment, search, notification hint
 - 반응형 Web UI, 접근성, 브라우저 E2E
-- 부하, backup/restore, rolling deploy
+- 부하, backup/restore, controlled single-gateway restart
 
 Agent runtime, Shared Mind, 제품 Kanban, Orchestrator는 이 문서의 범위가 아니다. Chat Foundation의 모든 blocking gate가 통과하기 전에는 Agent 구현을 release 대상으로 승격하지 않는다.
 
@@ -56,7 +56,7 @@ pnpm test:a11y                 # Playwright + axe + keyboard assertions
 pnpm test:reliability          # Toxiproxy/process-kill/resume/slow client
 pnpm test:load                 # k6 workload와 threshold
 pnpm test:restore              # disposable environment 실제 restore
-pnpm test:rolling-deploy       # N/N-1 live traffic rehearsal
+# `test:rolling-deploy` is intentionally absent from M1; it belongs to a later HA profile.
 pnpm test:quality-gate         # 위 결과를 단일 release manifest로 판정
 ```
 
@@ -75,7 +75,7 @@ CI lane:
 - public/private channel, DM, archived channel 및 membership 변경 이력.
 - device는 사용자당 최소 3개(`web-1`, `web-2`, `mobile-sim`)이며 각자 독립 cursor와 connection을 가진다.
 - 모든 command에 `command_id`, `idempotency_key`, `aggregate_id`, `expected_version`를 명시한다.
-- test clock은 freeze/advance 가능하되 DB ordering 판정은 `created_at`이 아니라 채널별 `seq`를 사용한다.
+- test clock은 freeze/advance 가능하되 DB ordering 판정은 `created_at`이 아니라 채널별 `event_seq`를 사용한다.
 - Testcontainers는 test별 새 schema/database를 사용한다. 병렬 test 간 tenant나 outbox row를 공유하지 않는다.
 
 ### 4.2 관측 및 invariant
@@ -83,8 +83,8 @@ CI lane:
 각 test run은 최소 다음을 수집한다.
 
 - command submit/DB commit/accepted/fan-out timestamp
-- `event_id`, `tenant_id`, `channel_id`, `seq`, event type
-- client별 highest contiguous ACK와 resume cursor
+- `event_id`, `tenant_id`, `channel_id`, `event_seq`, `event_type`
+- client별 `last_applied_cursor`, resume cursor, 그리고 별도의 transport ACK
 - message/outbox/audit row의 transaction 상관관계
 - queue depth, disconnect reason, reconnect/resume latency
 - HTTP/WS error rate, PostgreSQL connections/locks/CPU, gateway CPU/RSS
@@ -270,7 +270,7 @@ staging과 production 동형 topology에서 immutable release image를 사용한
 - attachment object checksum과 authorized download
 - login, history, cursor resume, new message create
 
-**Exit gate:** PITR 기준 **RPO 5분 이하**, restore 시작부터 readiness 및 smoke 완료까지 **RTO 60분 이하**. RPO window 이전 accepted message 유실 **0**, tenant 관계/checksum 오류 **0**, cross-tenant search/file 노출 **0**, corrupt/missing sampled object **0/1,000**. restore 후 새 message의 seq/id 충돌 **0**. nightly backup job 성공률은 최근 30회 중 **30/30**, restore rehearsal은 최소 월 1회 및 각 schema migration release마다 통과해야 한다.
+**Exit gate:** PITR 기준 **RPO 5분 이하**, restore 시작부터 readiness 및 smoke 완료까지 **RTO 60분 이하**. RPO window 이전 accepted message 유실 **0**, tenant 관계/checksum 오류 **0**, cross-tenant search/file 노출 **0**, corrupt/missing sampled object **0/1,000**. restore 후 새 message의 `event_seq`/ID 충돌 **0**. nightly backup bootstrap과 정상 30-run 규칙은 release registry를 따른다.
 
 ### 9.2 Controlled single-gateway restart rehearsal
 

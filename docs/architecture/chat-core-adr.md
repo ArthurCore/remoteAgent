@@ -47,7 +47,7 @@ These rules are stronger than framework choices:
 1. **Commit before acceptance.** `2xx` command success and `message.accepted` semantics mean the message, durable event, audit record, and outbox row committed atomically.
 2. **One transactional truth.** No MongoDB, event broker, search index, WebSocket node, or client cache is a second source of truth.
 3. **At-least-once delivery, idempotent application.** Outbox dispatch and WebSocket delivery may duplicate; stable IDs and sequences make duplicates harmless.
-4. **Per-channel order only.** Every durable conversation event has a monotonically increasing channel `seq`. There is no global ordering promise across channels.
+4. **Per-channel order only.** Every durable conversation event has a monotonically increasing channel `event_seq`. There is no global ordering promise across channels.
 5. **Recovery does not depend on a live socket.** A client can discard its socket state and reconstruct from authenticated snapshots plus delta feeds.
 6. **Authorization at every boundary.** HTTP commands, delta/history reads, socket subscriptions, search results, and attachment downloads independently verify tenant and channel access.
 7. **Tenant is derived from authentication.** A body, path, query, or untrusted header cannot switch tenant context.
@@ -189,17 +189,17 @@ A durable envelope is:
   "event_id": "opaque-id",
   "tenant_id": "opaque-id",
   "channel_id": "opaque-id",
-  "seq": "1842",
-  "type": "message.created",
+  "event_seq": "1842",
+  "event_type": "message.created",
   "actor": { "principal_id": "opaque-id", "kind": "human" },
   "occurred_at": "2026-08-24T12:34:56.789Z",
   "payload": {}
 }
 ```
 
-`seq` is a decimal string on the wire because JavaScript and mobile runtimes cannot safely represent every PostgreSQL `BIGINT`. IDs are opaque strings and timestamps are RFC 3339 UTC.
+`event_seq` is a decimal string on the wire because JavaScript and mobile runtimes cannot safely represent every PostgreSQL `BIGINT`. IDs are opaque strings and timestamps are RFC 3339 UTC.
 
-Gateways preserve per-channel order in each connection’s bounded queue. They do not promise inter-channel order. The client deduplicates by `event_id`, applies only events after its stored contiguous cursor, and advances the cursor after local application. On a gap, queue overflow, authorization change, server `resync_required`, or reconnect, it pauses live application and performs delta recovery.
+Gateways preserve per-channel order in each connection’s bounded queue. They do not promise inter-channel order. The client deduplicates by `event_id` and advances `last_applied_cursor` only in the same local transaction that applies the reducer result. Transport ACK does not advance this checkpoint. On a gap, queue overflow, authorization change, server `resync_required`, or reconnect, it pauses live application and performs delta recovery.
 
 Slow clients receive a bounded warning and are disconnected with a resumable reason before unbounded memory growth. They recover from PostgreSQL; the server does not retain an unbounded per-socket replay buffer.
 
@@ -208,10 +208,10 @@ Slow clients receive a bounded warning and are disconnected with a resumable rea
 The authoritative endpoint is conceptually:
 
 ```http
-GET /api/v1/channels/{channel_id}/events?after={opaque_cursor}&limit=200
+GET /api/v1/channels/{channel_id}/sync/events?after={opaque_cursor}&through={barrier_cursor}&limit=200
 ```
 
-It returns events in ascending channel sequence plus `next_cursor` and `has_more`. The cursor is an opaque, versioned encoding bound to the channel; clients must not construct it. The initial channel snapshot includes a `snapshot_cursor`. A client subscribes/resumes using its cursor, drains all delta pages, then applies buffered newer live events with event-ID deduplication. The server may combine these steps in the socket protocol, but the HTTP behavior remains the conformance baseline.
+It returns events in ascending channel order through the fixed `barrier_cursor`, with `next_cursor` and `reached_barrier`. The cursor is opaque and channel-bound; clients must not construct or compare it. The exact snapshot→buffering subscription→barrier→fixed delta→buffer flush→live handshake, overflow behavior, and revocation behavior are defined only by `docs/contracts/sync-contract-v1.md`.
 
 Event retention must be at least the declared offline-sync window. If a cursor predates retained events, the API returns `410 CURSOR_EXPIRED` with a machine-readable instruction to fetch a fresh snapshot/history. Message history retention and event-log retention are separate policies.
 
