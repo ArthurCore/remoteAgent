@@ -8,6 +8,13 @@
       "when": 1787648708709,
       "tag": "0000_aw008_foundation",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1787695124181,
+      "tag": "0001_aw010a_channel_stream",
+      "breakpoints": true
     }
   ]
 }

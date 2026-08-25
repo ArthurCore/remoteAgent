@@ -30,6 +30,7 @@ import {
   parseMigrationEnvironment,
 } from "../src/migration-env.js";
 import {
+  CHANNEL_STREAM_MIGRATION_HASH,
   FOUNDATION_MIGRATION_HASH,
   MigrationIntegrityError,
   checkLocalMigrationFiles,
@@ -743,7 +744,10 @@ describe("committed generated migration artifacts", () => {
     const result = checkLocalMigrationFiles(migrationConfig);
     const sql = readFileSync(join(migrationConfig.migrationsFolder, "0000_aw008_foundation.sql"));
 
-    expect(result).toEqual({ migrationCount: 1, hashes: [FOUNDATION_MIGRATION_HASH] });
+    expect(result).toEqual({
+      migrationCount: 2,
+      hashes: [FOUNDATION_MIGRATION_HASH, CHANNEL_STREAM_MIGRATION_HASH],
+    });
     expect(createHash("sha256").update(sql).digest("hex")).toBe(FOUNDATION_MIGRATION_HASH);
   });
 
@@ -774,7 +778,10 @@ describe("committed generated migration artifacts", () => {
     withTemporaryMigrationCopy(({ copiedFolder }) => {
       expect(
         checkLocalMigrationFiles({ ...migrationConfig, migrationsFolder: copiedFolder }),
-      ).toEqual({ migrationCount: 1, hashes: [FOUNDATION_MIGRATION_HASH] });
+      ).toEqual({
+        migrationCount: 2,
+        hashes: [FOUNDATION_MIGRATION_HASH, CHANNEL_STREAM_MIGRATION_HASH],
+      });
     });
   });
 

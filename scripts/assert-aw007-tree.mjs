@@ -84,7 +84,9 @@ const implementationFiles = [
   "packages/contracts/vitest.config.ts",
   "packages/db/drizzle.config.ts",
   "packages/db/drizzle/0000_aw008_foundation.sql",
+  "packages/db/drizzle/0001_aw010a_channel_stream.sql",
   "packages/db/drizzle/meta/0000_snapshot.json",
+  "packages/db/drizzle/meta/0001_snapshot.json",
   "packages/db/drizzle/meta/_journal.json",
   "packages/db/package.json",
   "packages/db/src/index.ts",
@@ -96,6 +98,7 @@ const implementationFiles = [
   "packages/db/src/schema/enums.ts",
   "packages/db/src/schema/foundation.ts",
   "packages/db/src/schema/index.ts",
+  "packages/db/test/channel-stream-migration.spec.ts",
   "packages/db/test/channel-stream-schema.spec.ts",
   "packages/db/test/constraints.integration.spec.ts",
   "packages/db/test/fixtures/failing-migration/0000_valid_then_fail.sql",
@@ -189,7 +192,7 @@ const canonicalDbScripts = {
   lint: "eslint src test drizzle.config.ts vitest.config.ts",
   typecheck: "tsc -p tsconfig.json --noEmit",
   "test:unit":
-    "vitest run test/schema.spec.ts test/migration.spec.ts test/channel-stream-schema.spec.ts",
+    "vitest run test/schema.spec.ts test/migration.spec.ts test/channel-stream-schema.spec.ts test/channel-stream-migration.spec.ts",
   "test:integration":
     "vitest run --config vitest.config.ts --project integration --no-file-parallelism",
 };
@@ -400,10 +403,37 @@ const exactAw010aS3FileHashes = new Map([
     "packages/db/test/channel-stream-schema.spec.ts",
     "8cbc04fcc59c63c0068f4a26f9e3577be984084d0eceb1fde03c3bd6d7d235fd",
   ],
-  ["packages/db/package.json", "97b666e471eaec49180968fd8d7d08d41e80eaab0da672c739b0f84c4569da2b"],
+  ["packages/db/package.json", "56051b02f781a365848620759c116aa949e96aa61f9307b4f243006d894ae46b"],
   [
     "packages/db/test/schema.spec.ts",
     "df6b89171e6ba4e14adac4d76049865fffa3aa7974698387bda9e43de0779d45",
+  ],
+]);
+
+const exactAw010aS4FileHashes = new Map([
+  [
+    "packages/db/drizzle/0001_aw010a_channel_stream.sql",
+    "e44f52f786360ac502c0d928cebaebdca718abdd39ae2e78275b9d21505aef26",
+  ],
+  [
+    "packages/db/drizzle/meta/0001_snapshot.json",
+    "f118e261f89cd9e6d4faefa23c972c5bd4fc84dc5a14d9cca77cbf2b642751d2",
+  ],
+  [
+    "packages/db/drizzle/meta/_journal.json",
+    "70c038f3554c6b0e9eeb3bf429920d4a20c5cdfb7e6d2d02e43ccbbcc5520762",
+  ],
+  [
+    "packages/db/src/migration-integrity.ts",
+    "cf6a3bd233c5332b64fb86d2bf2f659201d2d3521444d578d8821f45feea195f",
+  ],
+  [
+    "packages/db/test/channel-stream-migration.spec.ts",
+    "598bc290b3834818c122e001fdabda949ff9f6e928d38a2b4179783ff062b581",
+  ],
+  [
+    "packages/db/test/migration.spec.ts",
+    "268564c471a114ec3b996fa9a5c4794bfce6d85733ff70e5cc5342517f247144",
   ],
 ]);
 
@@ -457,6 +487,65 @@ const exactMigrationTables = [
   "workspaces",
 ];
 
+const exactChannelStreamMigrationTables = ["channel_event_sequences", "channel_events"];
+const exactCumulativeMigrationSnapshotTables = [
+  ...exactMigrationTables.map((tableName) => `public.${tableName}`),
+  ...exactChannelStreamMigrationTables.map((tableName) => `public.${tableName}`),
+];
+const exactChannelStreamFunctionNames = [
+  "initialize_channel_event_sequence",
+  "reject_channel_event_mutation",
+  "enforce_channel_membership_event_types",
+];
+const exactChannelStreamTriggerNames = [
+  "channels_initialize_event_sequence",
+  "channel_events_append_only_guard",
+  "channel_membership_epochs_event_type_guard",
+];
+const exactMembershipEventForeignKeyNames = [
+  "channel_membership_epochs_joined_event_fk",
+  "channel_membership_epochs_exited_event_fk",
+];
+const exactMigrationSnapshotEnums = {
+  "public.channel_kind_v1": {
+    name: "channel_kind_v1",
+    schema: "public",
+    values: ["public", "private", "dm"],
+  },
+  "public.history_mode_v1": {
+    name: "history_mode_v1",
+    schema: "public",
+    values: ["full", "since_join"],
+  },
+  "public.principal_kind_v1": {
+    name: "principal_kind_v1",
+    schema: "public",
+    values: ["human", "service"],
+  },
+  "public.workspace_role_v1": {
+    name: "workspace_role_v1",
+    schema: "public",
+    values: ["owner", "admin", "member", "guest"],
+  },
+};
+const exactMigrationSnapshotIndexNamesByTable = new Map([
+  [
+    "public.channel_membership_epochs",
+    [
+      "channel_membership_epochs_one_active_uq",
+      "channel_membership_epochs_principal_idx",
+      "channel_membership_epochs_channel_seq_idx",
+    ],
+  ],
+  ["public.channels", ["channels_workspace_idx"]],
+  ["public.principals", []],
+  ["public.tenants", []],
+  ["public.workspace_memberships", ["workspace_memberships_principal_idx"]],
+  ["public.workspaces", []],
+  ["public.channel_event_sequences", []],
+  ["public.channel_events", []],
+]);
+
 const ignoredDirectoryNames = new Set([".next", ".turbo", "coverage", "dist", "node_modules"]);
 const forbiddenTestMarker =
   /\b(?:describe|suite|it|test)(?:\s*\.\s*(?:concurrent|sequential))?\s*\.\s*(?:only|runIf|skip|skipIf|todo)\b|\b(?:runIf|skipIf)\s*\(/u;
@@ -493,6 +582,18 @@ function assertExactList(label, actual, expected) {
       `${label} does not match the AW-008 manifest; missing: ${missing.join(", ") || "none"}; extra: ${extra.join(", ") || "none"}`,
     );
   }
+}
+
+function assertExactOrderedList(label, actual, expected) {
+  if (actual.length !== expected.length || actual.some((item, index) => item !== expected[index])) {
+    throw new Error(
+      `${label} does not match the AW-008 ordered manifest; actual: ${actual.join(", ") || "none"}; expected: ${expected.join(", ") || "none"}`,
+    );
+  }
+}
+
+function normalizedSqlStatement(statement) {
+  return statement.replaceAll('"', "").replace(/\s+/gu, " ").trim().toLowerCase();
 }
 
 async function assertRealFile(path) {
@@ -701,6 +802,14 @@ for (const [path, expectedHash] of exactAw010aS3FileHashes) {
   }
 }
 
+for (const [path, expectedHash] of exactAw010aS4FileHashes) {
+  const source = await readFile(resolve(root, path));
+  const actualHash = createHash("sha256").update(source).digest("hex");
+  if (actualHash !== expectedHash) {
+    throw new Error(`${path} does not match the AW-010A S4 byte-exact oracle`);
+  }
+}
+
 const workspacePolicy = await readFile(resolve(root, "pnpm-workspace.yaml"), "utf8");
 if (workspacePolicy !== canonicalWorkspacePolicy) {
   throw new Error("pnpm-workspace.yaml does not match the AW-008 frozen build policy");
@@ -730,13 +839,216 @@ const migrationSnapshot = await readJson("packages/db/drizzle/meta/0000_snapshot
 const snapshotTableNames = Object.values(migrationSnapshot.tables ?? {}).map((table) => table.name);
 assertExactList("Migration snapshot tables", snapshotTableNames, exactMigrationTables);
 
-const migrationJournal = await readJson("packages/db/drizzle/meta/_journal.json");
+const channelStreamMigrationSql = await readFile(
+  resolve(root, "packages/db/drizzle/0001_aw010a_channel_stream.sql"),
+  "utf8",
+);
+const channelStreamMigrationStatements = channelStreamMigrationSql
+  .split("--> statement-breakpoint")
+  .map((statement) => statement.trim())
+  .filter((statement) => statement.length > 0);
+assertExactOrderedList(
+  "0001 migration leading locks",
+  channelStreamMigrationStatements.slice(0, 2).map(normalizedSqlStatement),
+  [
+    "lock table public.channels in access exclusive mode;",
+    "lock table public.channel_membership_epochs in access exclusive mode;",
+  ],
+);
+
+const topLevelTransactionControl = channelStreamMigrationStatements.find((statement) =>
+  /^(?:BEGIN|START\s+TRANSACTION|COMMIT|ROLLBACK)\b/iu.test(statement),
+);
+if (topLevelTransactionControl !== undefined) {
+  throw new Error("0001 migration must not contain top-level transaction control");
+}
+
+const channelStreamMigrationTableNames = [
+  ...channelStreamMigrationSql.matchAll(
+    /\bCREATE\s+TABLE\s+(?:(?:"public"|public)\.)?"?([a-z_][a-z0-9_]*)"?\s*\(/giu,
+  ),
+].map((match) => match[1]);
+assertExactOrderedList(
+  "0001 migration SQL tables",
+  channelStreamMigrationTableNames,
+  exactChannelStreamMigrationTables,
+);
+
+const channelStreamFunctionNames = [
+  ...channelStreamMigrationSql.matchAll(
+    /\bCREATE\s+FUNCTION\s+(?:(?:"public"|public)\.)?"?([a-z_][a-z0-9_]*)"?\s*\(\s*\)/giu,
+  ),
+].map((match) => match[1]);
+assertExactOrderedList(
+  "0001 migration functions",
+  channelStreamFunctionNames,
+  exactChannelStreamFunctionNames,
+);
+
+const channelStreamTriggerMatches = [
+  ...channelStreamMigrationSql.matchAll(
+    /\bCREATE\s+(CONSTRAINT\s+)?TRIGGER\s+"?([a-z_][a-z0-9_]*)"?/giu,
+  ),
+];
+assertExactOrderedList(
+  "0001 migration triggers",
+  channelStreamTriggerMatches.map((match) => match[2]),
+  exactChannelStreamTriggerNames,
+);
+assertExactOrderedList(
+  "0001 migration constraint triggers",
+  channelStreamTriggerMatches.filter((match) => match[1] !== undefined).map((match) => match[2]),
+  ["channel_membership_epochs_event_type_guard"],
+);
+
+const membershipEventForeignKeyStatements = channelStreamMigrationStatements.filter((statement) =>
+  /^ALTER\s+TABLE\s+(?:(?:"public"|public)\.)?"?channel_membership_epochs"?[\s\S]*\bFOREIGN\s+KEY\b/iu.test(
+    statement,
+  ),
+);
+const membershipEventForeignKeyNames = membershipEventForeignKeyStatements.map((statement) => {
+  const match = statement.match(/\bADD\s+CONSTRAINT\s+"?([a-z_][a-z0-9_]*)"?\s+FOREIGN\s+KEY\b/iu);
+  return match?.[1] ?? "<missing>";
+});
+assertExactOrderedList(
+  "0001 migration membership event foreign keys",
+  membershipEventForeignKeyNames,
+  exactMembershipEventForeignKeyNames,
+);
 if (
-  migrationJournal.entries?.length !== 1 ||
-  migrationJournal.entries[0]?.idx !== 0 ||
-  migrationJournal.entries[0]?.tag !== "0000_aw008_foundation"
+  membershipEventForeignKeyStatements.some(
+    (statement) => !/\bNOT\s+DEFERRABLE\s*;\s*$/iu.test(statement),
+  ) ||
+  (channelStreamMigrationSql.match(/\bNOT\s+DEFERRABLE\b/giu) ?? []).length !== 2
 ) {
-  throw new Error("Migration journal must contain only 0000_aw008_foundation");
+  throw new Error(
+    "0001 migration membership event foreign keys must be ordinary NOT DEFERRABLE FKs",
+  );
+}
+
+const deferredGuardStatements = channelStreamMigrationStatements.filter((statement) =>
+  /\bDEFERRABLE\s+INITIALLY\s+DEFERRED\b/iu.test(statement),
+);
+if (
+  deferredGuardStatements.length !== 1 ||
+  !/^CREATE\s+CONSTRAINT\s+TRIGGER\s+channel_membership_epochs_event_type_guard\b/iu.test(
+    deferredGuardStatements[0] ?? "",
+  )
+) {
+  throw new Error(
+    "0001 migration must defer only the channel membership event type constraint trigger",
+  );
+}
+
+const prohibitedChannelStreamSurface = channelStreamMigrationSql.match(
+  /\b(?:down|drop|message_versions?|outbox|idempotency|projections?|read_states?)\b/iu,
+);
+if (prohibitedChannelStreamSurface !== null) {
+  throw new Error(
+    `0001 migration contains prohibited future or destructive surface: ${prohibitedChannelStreamSurface[0]}`,
+  );
+}
+
+const channelStreamMigrationSnapshot = await readJson(
+  "packages/db/drizzle/meta/0001_snapshot.json",
+);
+assertExactList(
+  "0001 cumulative migration snapshot tables",
+  Object.keys(channelStreamMigrationSnapshot.tables ?? {}),
+  exactCumulativeMigrationSnapshotTables,
+);
+assertExactList(
+  "0001 cumulative migration snapshot table names",
+  Object.values(channelStreamMigrationSnapshot.tables ?? {}).map((table) => table.name),
+  [...exactMigrationTables, ...exactChannelStreamMigrationTables],
+);
+assertExactList(
+  "0001 migration snapshot top-level objects",
+  Object.keys(channelStreamMigrationSnapshot),
+  [
+    "id",
+    "prevId",
+    "version",
+    "dialect",
+    "tables",
+    "enums",
+    "schemas",
+    "sequences",
+    "roles",
+    "policies",
+    "views",
+    "_meta",
+  ],
+);
+if (
+  channelStreamMigrationSnapshot.prevId !== migrationSnapshot.id ||
+  channelStreamMigrationSnapshot.version !== "7" ||
+  channelStreamMigrationSnapshot.dialect !== "postgresql"
+) {
+  throw new Error("0001 migration snapshot lineage or generated format is invalid");
+}
+assertExactObject(
+  "0001 migration snapshot enums",
+  channelStreamMigrationSnapshot.enums ?? {},
+  exactMigrationSnapshotEnums,
+);
+for (const [tableName, expectedIndexNames] of exactMigrationSnapshotIndexNamesByTable) {
+  const snapshotTable = channelStreamMigrationSnapshot.tables?.[tableName];
+  if (snapshotTable === undefined || snapshotTable.schema !== "") {
+    throw new Error(`0001 migration snapshot table has an invalid generated schema: ${tableName}`);
+  }
+  assertExactList(
+    `0001 migration snapshot indexes for ${tableName}`,
+    Object.keys(snapshotTable.indexes ?? {}),
+    expectedIndexNames,
+  );
+}
+assertExactObject(
+  "0001 migration snapshot generated schema objects",
+  {
+    schemas: channelStreamMigrationSnapshot.schemas ?? {},
+    sequences: channelStreamMigrationSnapshot.sequences ?? {},
+    roles: channelStreamMigrationSnapshot.roles ?? {},
+    policies: channelStreamMigrationSnapshot.policies ?? {},
+    views: channelStreamMigrationSnapshot.views ?? {},
+    _meta: channelStreamMigrationSnapshot._meta ?? {},
+  },
+  {
+    schemas: {},
+    sequences: {},
+    roles: {},
+    policies: {},
+    views: {},
+    _meta: { columns: {}, schemas: {}, tables: {} },
+  },
+);
+
+const migrationJournal = await readJson("packages/db/drizzle/meta/_journal.json");
+assertExactObject("Migration journal", migrationJournal, {
+  version: "7",
+  dialect: "postgresql",
+  entries: [
+    {
+      idx: 0,
+      version: "7",
+      when: 1787648708709,
+      tag: "0000_aw008_foundation",
+      breakpoints: true,
+    },
+    {
+      idx: 1,
+      version: "7",
+      when: 1787695124181,
+      tag: "0001_aw010a_channel_stream",
+      breakpoints: true,
+    },
+  ],
+});
+if (
+  migrationJournal.entries[1].idx <= migrationJournal.entries[0].idx ||
+  migrationJournal.entries[1].when <= migrationJournal.entries[0].when
+) {
+  throw new Error("Migration journal entries must be strictly ordered by idx and when");
 }
 
 const staticModuleSpecifierPattern =
