@@ -14,6 +14,7 @@ const requiredRootFiles = [
   ".nvmrc",
   ".prettierignore",
   "Dockerfile",
+  "LICENSE",
   "docker-compose.yml",
   "eslint.config.mjs",
   "package.json",
@@ -537,6 +538,9 @@ assertExactList("Workspace package names", actualPackageNames, [
 ]);
 
 const rootPackage = await readJson("package.json");
+if (rootPackage.license !== "Apache-2.0") {
+  throw new Error("Root package license must equal Apache-2.0");
+}
 if (rootPackage.packageManager !== "pnpm@11.23.0") {
   throw new Error("Root packageManager must equal pnpm@11.23.0");
 }
