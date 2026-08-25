@@ -1,23 +1,26 @@
 name: agent-workspace
 
-x-app-environment: &app-environment
+x-app-base-environment: &app-base-environment
   APP_ENV: development
-  APP_VERSION: dev
+  APP_VERSION: ${APP_VERSION:-dev}
   API_PORT: "3001"
   WORKER_HEALTH_PORT: "3002"
   WEB_PORT: "3000"
-  PUBLIC_BASE_URL: http://localhost:3000
-  DATABASE_URL: postgresql://agent_workspace:local-only-development-secret@postgres:5432/agent_workspace
+  PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:3000}
+
+x-storage-environment: &storage-environment
   S3_ENDPOINT: http://rustfs:9000
   S3_REGION: us-east-1
-  S3_ACCESS_KEY: agentworkspace-local
-  S3_SECRET_KEY: local-only-development-secret
+  S3_ACCESS_KEY: ${S3_ACCESS_KEY:-agentworkspace-local}
+  S3_SECRET_KEY: ${S3_SECRET_KEY:-local-only-storage-secret}
   S3_FORCE_PATH_STYLE: "true"
-  S3_QUARANTINE_BUCKET: chat-quarantine
-  S3_CLEAN_BUCKET: chat-clean
+  S3_QUARANTINE_BUCKET: ${S3_QUARANTINE_BUCKET:-chat-quarantine}
+  S3_CLEAN_BUCKET: ${S3_CLEAN_BUCKET:-chat-clean}
 
 x-app-service: &app-service
-  image: agent-workspace:aw-007-compose
+  image: ${APP_IMAGE:-agent-workspace:aw-008-compose}
+  pull_policy: never
+  user: "10001:10001"
   read_only: true
   tmpfs:
     - /tmp:rw,noexec,nosuid,nodev,size=64m
@@ -29,16 +32,26 @@ x-app-service: &app-service
 services:
   postgres:
     image: postgres:17.11-bookworm@sha256:84560e3b9c6874893fc4e2854f5dc3e7c1a37bc9d1dfd7a8c641310ae22ba5ad
+    user: postgres
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
     environment:
-      POSTGRES_DB: agent_workspace
-      POSTGRES_USER: agent_workspace
-      POSTGRES_PASSWORD: local-only-development-secret
+      POSTGRES_DB: ${POSTGRES_DB:-agent_workspace}
+      POSTGRES_USER: ${POSTGRES_OWNER_ROLE:-agent_workspace_owner}
+      POSTGRES_PASSWORD: ${POSTGRES_OWNER_PASSWORD:-local-only-owner-secret}
+      MIGRATOR_ROLE: ${POSTGRES_MIGRATOR_ROLE:-agent_workspace_migrator}
+      MIGRATOR_PASSWORD: ${POSTGRES_MIGRATOR_PASSWORD:-local-only-migrator-secret}
+      RUNTIME_ROLE: ${POSTGRES_RUNTIME_ROLE:-agent_workspace_runtime}
+      RUNTIME_PASSWORD: ${POSTGRES_RUNTIME_PASSWORD:-local-only-runtime-secret}
     ports:
-      - "127.0.0.1:5432:5432"
+      - "127.0.0.1:${POSTGRES_HOST_PORT:-5432}:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
+      - ./scripts/postgres/init-roles.sh:/docker-entrypoint-initdb.d/10-init-roles.sh:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U agent_workspace -d agent_workspace"]
+      test: ["CMD-SHELL", 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
       interval: 2s
       timeout: 3s
       retries: 30
@@ -46,13 +59,18 @@ services:
 
   rustfs:
     image: rustfs/rustfs:1.0.0-rc.3@sha256:800cf3f352a0a27e3275ca854a51f0027975d7acc7a0d52089a35bcc9fcbf0b5
+    user: rustfs
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
     environment:
-      RUSTFS_ACCESS_KEY: agentworkspace-local
-      RUSTFS_SECRET_KEY: local-only-development-secret
+      RUSTFS_ACCESS_KEY: ${S3_ACCESS_KEY:-agentworkspace-local}
+      RUSTFS_SECRET_KEY: ${S3_SECRET_KEY:-local-only-storage-secret}
       RUSTFS_CONSOLE_ENABLE: "true"
     ports:
-      - "127.0.0.1:9000:9000"
-      - "127.0.0.1:9001:9001"
+      - "127.0.0.1:${RUSTFS_API_HOST_PORT:-9000}:9000"
+      - "127.0.0.1:${RUSTFS_CONSOLE_HOST_PORT:-9001}:9001"
     volumes:
       - rustfs-data:/data
     healthcheck:
@@ -65,9 +83,22 @@ services:
   storage-init:
     <<: *app-service
     command: ["node", "apps/worker/dist/storage-init.js"]
-    environment: *app-environment
+    environment:
+      <<: [*app-base-environment, *storage-environment]
+      DATABASE_URL: postgresql://unused.invalid/unused
     depends_on:
       rustfs:
+        condition: service_healthy
+    restart: "no"
+
+  db-migrate:
+    <<: *app-service
+    command: ["node", "packages/db/dist/migrate.js"]
+    environment:
+      MIGRATION_DATABASE_URL: postgresql://${POSTGRES_MIGRATOR_ROLE:-agent_workspace_migrator}:${POSTGRES_MIGRATOR_PASSWORD:-local-only-migrator-secret}@postgres:5432/${POSTGRES_DB:-agent_workspace}
+      MIGRATION_TARGET_CLASS: local-compose
+    depends_on:
+      postgres:
         condition: service_healthy
     restart: "no"
 
@@ -78,14 +109,18 @@ services:
       args:
         VCS_REF: ${VCS_REF:-local}
     command: ["node", "apps/api/dist/main.js"]
-    environment: *app-environment
+    environment:
+      <<: [*app-base-environment, *storage-environment]
+      DATABASE_URL: postgresql://${POSTGRES_RUNTIME_ROLE:-agent_workspace_runtime}:${POSTGRES_RUNTIME_PASSWORD:-local-only-runtime-secret}@postgres:5432/${POSTGRES_DB:-agent_workspace}
     depends_on:
       postgres:
         condition: service_healthy
       storage-init:
         condition: service_completed_successfully
+      db-migrate:
+        condition: service_completed_successfully
     ports:
-      - "127.0.0.1:3001:3001"
+      - "127.0.0.1:${API_HOST_PORT:-3001}:3001"
     healthcheck:
       test:
         [
@@ -102,14 +137,18 @@ services:
   worker:
     <<: *app-service
     command: ["node", "apps/worker/dist/main.js"]
-    environment: *app-environment
+    environment:
+      <<: [*app-base-environment, *storage-environment]
+      DATABASE_URL: postgresql://${POSTGRES_RUNTIME_ROLE:-agent_workspace_runtime}:${POSTGRES_RUNTIME_PASSWORD:-local-only-runtime-secret}@postgres:5432/${POSTGRES_DB:-agent_workspace}
     depends_on:
       postgres:
         condition: service_healthy
       storage-init:
         condition: service_completed_successfully
+      db-migrate:
+        condition: service_completed_successfully
     ports:
-      - "127.0.0.1:3002:3002"
+      - "127.0.0.1:${WORKER_HOST_PORT:-3002}:3002"
     healthcheck:
       test:
         [
@@ -127,14 +166,16 @@ services:
     <<: *app-service
     command: ["node", "web-standalone/apps/web/server.js"]
     environment:
-      <<: *app-environment
+      APP_ENV: development
+      APP_VERSION: ${APP_VERSION:-dev}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:3000}
       HOSTNAME: 0.0.0.0
       PORT: "3000"
     depends_on:
       api:
         condition: service_healthy
     ports:
-      - "127.0.0.1:3000:3000"
+      - "127.0.0.1:${WEB_HOST_PORT:-3000}:3000"
     healthcheck:
       test:
         [

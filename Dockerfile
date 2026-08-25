@@ -33,7 +33,7 @@ RUN pnpm --filter @agent-workspace/api... \
 FROM node:24.15.0-bookworm-slim@sha256:4e6b70dd6cbfc88c8157ba19aa3d9f9cce6ba4703576d55459e45efcbc9c5f5d AS runtime
 ARG VCS_REF=unknown
 LABEL org.opencontainers.image.title="agent-workspace" \
-      org.opencontainers.image.description="AW-007 multi-role scaffold runtime" \
+      org.opencontainers.image.description="AW-008 role-separated multi-role runtime" \
       org.opencontainers.image.revision=$VCS_REF
 RUN apt-get update \
     && apt-get install -y --no-install-recommends libgnutls30 tini \
@@ -50,6 +50,7 @@ COPY --from=build /workspace/apps/worker/dist/ ./apps/worker/dist/
 COPY --from=build /workspace/packages/config/dist/ ./packages/config/dist/
 COPY --from=build /workspace/packages/contracts/dist/ ./packages/contracts/dist/
 COPY --from=build /workspace/packages/db/dist/ ./packages/db/dist/
+COPY --from=build /workspace/packages/db/drizzle/ ./packages/db/drizzle/
 COPY --from=build /workspace/apps/web/.next/standalone/ ./web-standalone/
 COPY --from=build /workspace/apps/web/.next/static/ ./web-standalone/apps/web/.next/static/
 ENV NODE_ENV=production
