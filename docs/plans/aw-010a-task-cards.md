@@ -130,23 +130,27 @@ Expected: exit 1, `0001_aw010a_channel_stream.sql` absent and journal cardinalit
 **Exclusive implementation/correction paths:**
 
 - Create `packages/db/test/channel-stream-migration.integration.spec.ts`
-- Modify `packages/db/vitest.config.ts`
-- Modify `scripts/assert-aw007-tree.mjs` to add only the S5 integration file/project expectation to the current exact manifest
+- Modify `packages/db/vitest.config.ts` to replace the integration-project glob with the exact four-file list including the new S5 file
+- Modify `packages/db/test/migration.integration.spec.ts` only for the exact two-row ledger, cumulative eight-table catalog, and latest retained migration-hash evidence expectations
+- Modify `packages/db/test/constraints.integration.spec.ts` to preserve its ten tests while advancing the exact cumulative table/constraint/index/timestamp catalog and replacing synthetic membership markers with real typed journal-event fixtures
+- Modify `packages/db/test/roles.integration.spec.ts` to preserve its ten tests while advancing cumulative table ownership/grants and separating catalog grants from trigger-enforced runtime behavior: direct journal update/delete must fail, while current raw sequence-state access remains explicitly disclosed rather than misrepresented as blocked
+- Modify `packages/db/test/support/postgres.ts` only to report the current frozen channel-stream migration hash in retained evidence; preserve generated credentials, no-secret serialization/scans, mode `0600`, no-overwrite, cleanup/residue verification, dead-owner-only running cleanup, stopped-container convergence, and all stale-container safety
+- Modify `scripts/assert-aw007-tree.mjs` to add the S5 integration file/project expectation and exact SHA-256 oracles for all six changed non-checker S5 files; preserve every prior oracle
 - If and only if red evidence proves the reviewed S4 SQL is wrong, modify `packages/db/drizzle/0001_aw010a_channel_stream.sql`, `packages/db/drizzle/meta/0001_snapshot.json`, `packages/db/drizzle/meta/_journal.json`, `packages/db/src/migration-integrity.ts`, and `packages/db/test/channel-stream-migration.spec.ts`; rerun S4 reviews as well.
 
-**Red:** write 24 `AW010A-S5` real-PostgreSQL tests: empty-membership preflight, existing-channel backfill, concurrent channel/membership DML locks, post-migration channel trigger, correct joined/left/revoked types, every other existing event type rejected for the corresponding reference, wrong-tenant rejection, nullable exit, supported event-first→membership→commit ordering, epoch-first immediate-FK rejection, commit-failure rollback, rerun/concurrent migrator/app rollback/hash drift. Run:
+**Red:** write exactly 24 named `AW010A-S5` tests with this frozen inventory: (1) exact four-file integration registration; (2) populated pre-stream membership fail-atomic preflight; (3) existing-channel zero-state backfill; (4) concurrent channel-DML lock exclusion; (5) concurrent membership-DML lock exclusion; (6) post-migration channel trigger; (7) joined acceptance; (8) left-exit acceptance; (9) revoked-exit acceptance; (10) nullable-exit acceptance; (11) all six non-join event types rejected for `joined_event_seq`; (12) all five non-exit event types rejected for `exited_event_seq`; (13) missing-event immediate-FK rejection; (14) wrong-tenant rejection; (15) same-tenant/wrong-channel rejection; (16) supported event-first→membership→commit order; (17) epoch-first immediate-FK rejection; (18) commit-time typed failure rolls back event, epoch, and sequence together; (19) no-op rerun leaves the exact two-row ledger; (20) concurrent migrators serialize; (21) pre-AW-010A application rollback compatibility over additive objects; (22) migration hash drift fails closed; (23) exact live function/trigger/FK deferrability catalog; and (24) synthetic positive membership markers and row-bearing diagnostics remain rejected. The pre-change integration glob makes test (1) deterministically RED; do not rely on file non-selection as red evidence. Run:
 
 ```bash
 pnpm --filter @agent-workspace/db exec vitest run --config vitest.config.ts --project integration --no-file-parallelism test/channel-stream-migration.integration.spec.ts
 ```
 
-Expected: exit 1 before integration project includes the new file and/or before reviewed SQL satisfies typed-reference cases; no infrastructure retry.
+Expected focused exit 1 from named test (1) because the integration-project include is still a broad glob. Record the separate full existing-suite baseline of 11 semantic failures / 14 passes caused by one-migration/synthetic-marker assumptions. No infrastructure retry and no skipped tests count as acceptance.
 
 **Minimum green:** register the exact file; correct only the listed unpublished migration artifacts when a named assertion proves necessity. No new migration number.
 
 **Green:** `pnpm --filter @agent-workspace/db exec vitest run --config vitest.config.ts --project integration --no-file-parallelism test/channel-stream-migration.integration.spec.ts` → 24 passed; `pnpm --filter @agent-workspace/db test:integration` → existing 25 plus 24 = 49 passed, residue zero.
 
-**Review/commit:** `docs/reviews/aw-010a-s5-spec-xhigh.md`, then `docs/reviews/aw-010a-s5-quality-security-xhigh.md`; if SQL changed, S4 reviewers also reapprove. Add exact changed paths and review docs; commit `test: verify channel stream cutover`.
+**Review/commit:** `docs/reviews/aw-010a-s5-spec-xhigh.md`, then `docs/reviews/aw-010a-s5-quality-security-xhigh.md`; if SQL changed, S4 reviewers also reapprove. Add the seven base implementation paths, any evidence-proven S4 correction paths, and review docs; commit `test: verify channel stream cutover`.
 
 ## S6 — PostgreSQL journal adapter unit behavior
 
