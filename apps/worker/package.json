@@ -1,0 +1,25 @@
+{
+  "name": "@agent-workspace/worker",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/main.ts",
+    "build": "tsc -p tsconfig.json",
+    "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
+    "lint": "eslint src test vitest.config.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test:unit": "vitest run --config vitest.config.ts"
+  },
+  "dependencies": {
+    "@agent-workspace/config": "workspace:*",
+    "@agent-workspace/contracts": "workspace:*",
+    "@agent-workspace/db": "workspace:*",
+    "@aws-sdk/client-s3": "3.1116.0"
+  },
+  "devDependencies": {
+    "@agent-workspace/test-config": "workspace:*",
+    "typescript": "5.9.3",
+    "vitest": "4.1.11"
+  }
+}

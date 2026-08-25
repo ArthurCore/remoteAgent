@@ -1,0 +1,26 @@
+{
+  "name": "@agent-workspace/config",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/env.ts",
+      "import": "./dist/env.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
+    "lint": "eslint src test",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test:unit": "vitest run test/env.spec.ts"
+  },
+  "dependencies": {
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3",
+    "vitest": "4.1.11"
+  }
+}

@@ -1,0 +1,153 @@
+name: agent-workspace
+
+x-app-environment: &app-environment
+  APP_ENV: development
+  APP_VERSION: dev
+  API_PORT: "3001"
+  WORKER_HEALTH_PORT: "3002"
+  WEB_PORT: "3000"
+  PUBLIC_BASE_URL: http://localhost:3000
+  DATABASE_URL: postgresql://agent_workspace:local-only-development-secret@postgres:5432/agent_workspace
+  S3_ENDPOINT: http://rustfs:9000
+  S3_REGION: us-east-1
+  S3_ACCESS_KEY: agentworkspace-local
+  S3_SECRET_KEY: local-only-development-secret
+  S3_FORCE_PATH_STYLE: "true"
+  S3_QUARANTINE_BUCKET: chat-quarantine
+  S3_CLEAN_BUCKET: chat-clean
+
+x-app-service: &app-service
+  image: agent-workspace:aw-007-compose
+  read_only: true
+  tmpfs:
+    - /tmp:rw,noexec,nosuid,nodev,size=64m
+  cap_drop:
+    - ALL
+  security_opt:
+    - no-new-privileges:true
+
+services:
+  postgres:
+    image: postgres:17.11-bookworm@sha256:84560e3b9c6874893fc4e2854f5dc3e7c1a37bc9d1dfd7a8c641310ae22ba5ad
+    environment:
+      POSTGRES_DB: agent_workspace
+      POSTGRES_USER: agent_workspace
+      POSTGRES_PASSWORD: local-only-development-secret
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U agent_workspace -d agent_workspace"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+      start_period: 5s
+
+  rustfs:
+    image: rustfs/rustfs:1.0.0-rc.3@sha256:800cf3f352a0a27e3275ca854a51f0027975d7acc7a0d52089a35bcc9fcbf0b5
+    environment:
+      RUSTFS_ACCESS_KEY: agentworkspace-local
+      RUSTFS_SECRET_KEY: local-only-development-secret
+      RUSTFS_CONSOLE_ENABLE: "true"
+    ports:
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
+    volumes:
+      - rustfs-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://127.0.0.1:9000/minio/health/live"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+      start_period: 5s
+
+  storage-init:
+    <<: *app-service
+    command: ["node", "apps/worker/dist/storage-init.js"]
+    environment: *app-environment
+    depends_on:
+      rustfs:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    <<: *app-service
+    build:
+      context: .
+      args:
+        VCS_REF: ${VCS_REF:-local}
+    command: ["node", "apps/api/dist/main.js"]
+    environment: *app-environment
+    depends_on:
+      postgres:
+        condition: service_healthy
+      storage-init:
+        condition: service_completed_successfully
+    ports:
+      - "127.0.0.1:3001:3001"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3001/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+      start_period: 5s
+
+  worker:
+    <<: *app-service
+    command: ["node", "apps/worker/dist/main.js"]
+    environment: *app-environment
+    depends_on:
+      postgres:
+        condition: service_healthy
+      storage-init:
+        condition: service_completed_successfully
+    ports:
+      - "127.0.0.1:3002:3002"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3002/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+      start_period: 5s
+
+  web:
+    <<: *app-service
+    command: ["node", "web-standalone/apps/web/server.js"]
+    environment:
+      <<: *app-environment
+      HOSTNAME: 0.0.0.0
+      PORT: "3000"
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:3000:3000"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+      start_period: 5s
+
+volumes:
+  postgres-data:
+  rustfs-data:

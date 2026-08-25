@@ -1,0 +1,32 @@
+{
+  "name": "@agent-workspace/api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/main.ts",
+    "build": "tsc -p tsconfig.json",
+    "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
+    "lint": "eslint src test vitest.config.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test:unit": "vitest run --config vitest.config.ts"
+  },
+  "dependencies": {
+    "@agent-workspace/config": "workspace:*",
+    "@agent-workspace/contracts": "workspace:*",
+    "@agent-workspace/db": "workspace:*",
+    "@aws-sdk/client-s3": "3.1116.0",
+    "@nestjs/common": "11.2.1",
+    "@nestjs/core": "11.2.1",
+    "@nestjs/platform-fastify": "11.2.1",
+    "fastify": "5.12.1",
+    "reflect-metadata": "0.2.2",
+    "rxjs": "7.8.2",
+    "socket.io": "4.8.3"
+  },
+  "devDependencies": {
+    "@agent-workspace/test-config": "workspace:*",
+    "typescript": "5.9.3",
+    "vitest": "4.1.11"
+  }
+}

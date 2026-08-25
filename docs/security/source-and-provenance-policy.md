@@ -19,7 +19,7 @@ This is the normative policy for:
 When another foundation document conflicts on one of those subjects, this policy controls. In particular:
 
 1. The statement in `docs/operations/platform-plan.md` that product source must remain local, and the hosted-CI prohibition derived from it, are superseded. **Agent Workspace product source may use approved private hosted Git and CI.**
-2. A dedicated source-local product runner is an **optional security/deployment profile**, not the default, not an AW-007 architecture requirement, and not a condition for using the provider-neutral `pnpm ci` contract.
+2. A dedicated source-local product runner is an **optional security/deployment profile**, not the default, not an AW-007 architecture requirement, and not a condition for using the provider-neutral `pnpm run ci` contract.
 3. The `docs/research/source-adoption-matrix.md` intake rules still control source-specific licensing posture. Its provenance gate is interpreted as the two separate lanes in §5 below; an ordinary transitive dependency does not require a manual upstream-file-to-local-file copy ledger.
 
 `MUST`, `MUST NOT`, `SHOULD`, and `MAY` are normative.
@@ -68,7 +68,7 @@ A hosted copy is an approved product-source backup/recovery input only if export
 Private hosted CI MAY build and test product source after `HOST-1`. Its workflow MUST:
 
 - start from the reviewed commit in a clean checkout and record the commit SHA and dirty-tree assertion where applicable;
-- invoke repository-owned commands such as `pnpm ci`; no required quality gate may exist only as opaque provider configuration;
+- invoke repository-owned commands such as `pnpm run ci`; no required quality gate may exist only as opaque provider configuration;
 - use read-only repository permissions by default and grant write, package-push, attestation, or deployment permissions per job;
 - use short-lived workload identity/OIDC for registries and cloud roles where supported; long-lived cloud keys are prohibited unless a time-bounded exception is approved;
 - withhold secrets from forked/untrusted pull requests and prevent unreviewed pull-request code from entering a secret-bearing or deployment job;

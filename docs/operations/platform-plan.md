@@ -120,7 +120,7 @@ Production must reject development defaults, wildcard origins, insecure cookies,
 
 ### 4.1 Provider-neutral clean-checkout CI
 
-The authoritative pipeline is the repository-owned `pnpm ci` contract executed from a clean checkout. It may run in an approved private hosted CI organization or in the optional source-local runner profile from the source policy. It must not use a developer's dirty working tree, `.env.local`, customer repository material, customer vendor credentials, or production data.
+The authoritative pipeline is the repository-owned `pnpm run ci` contract executed from a clean checkout. It may run in an approved private hosted CI organization or in the optional source-local runner profile from the source policy. It must not use a developer's dirty working tree, `.env.local`, customer repository material, customer vendor credentials, or production data.
 
 A release is prohibited unless the selected approved runner records:
 
@@ -145,7 +145,7 @@ docker version
 
 ### 4.2 Required pipeline gates
 
-The single `pnpm ci` entry point should run these stages in order:
+The single `pnpm run ci` entry point should run these stages in order:
 
 ```bash
 pnpm install --frozen-lockfile
@@ -678,7 +678,7 @@ Application code must not require Render/AWS metadata APIs. Provider adapters li
 
 ### Pilot launch gate
 
-- [ ] `pnpm ci` passes from a clean trusted-runner checkout.
+- [ ] `pnpm run ci` passes from a clean trusted-runner checkout.
 - [ ] Runtime image digest, SBOM, scan, and provenance evidence retained.
 - [ ] Staging and production use isolated PostgreSQL, object buckets, OIDC clients, secrets, and DNS.
 - [ ] Staging deploy uses the production candidate digest and all smoke/security/resume gates pass.
@@ -706,7 +706,7 @@ Application code must not require Render/AWS metadata APIs. Provider adapters li
 AW-007/AW-008 should treat these as executable platform contracts:
 
 1. Add the pinned multi-stage Dockerfile, `.dockerignore`, Compose stack, health checks, and non-root runtime.
-2. Add `pnpm ci`, smoke, correctness, tenant-isolation, WebSocket-resume, load, migration, integrity, and storage-reconcile script entry points as their corresponding product capabilities land.
+2. Add `pnpm run ci`, smoke, correctness, tenant-isolation, WebSocket-resume, load, migration, integrity, and storage-reconcile script entry points as their corresponding product capabilities land.
 3. Add startup environment validation and separate runtime/migrator database roles.
 4. Instrument JSON logs and OpenTelemetry before staging; include release digest and request/command correlation.
 5. Create provider IaC/config only after the application contract runs locally and CI gates pass.

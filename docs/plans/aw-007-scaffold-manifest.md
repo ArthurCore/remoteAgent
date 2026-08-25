@@ -4,7 +4,7 @@
 - **Card:** AW-007
 - **Reasoning baseline:** xhigh
 - **Purpose:** Freeze the exact repository scaffold before coding begins
-- **Supersedes:** Any older AW-007 package, Compose, script, or `pnpm ci` list
+- **Supersedes:** Any older AW-007 package, Compose, script, or `pnpm run ci` list
 
 ## 1. Scope
 
@@ -215,7 +215,7 @@ AW-007 root `package.json` contains only commands with real implementation and a
 
 The tree above is exhaustive for the AW-007 implementation surface. `scripts/assert-aw007-tree.mjs` checks every listed path, workspace package name, canonical root script, and forbidden extra future script. Any AW-007 implementation file outside this tree requires a manifest correction and reviewer approval before it is added.
 
-AW-007 `pnpm ci` does **not** invoke:
+AW-007 `pnpm run ci` does **not** invoke:
 
 - `contracts:check`
 - `test:integration`
@@ -245,7 +245,7 @@ Those scripts must not exist as green placeholders.
 | `test:rolling-deploy` | Later HA profile, not M1 | Multi-instance topology is separately approved |
 | `test:agent*` | M2 Agent cards | Single-Agent implementation lands after all M1 entry gates |
 
-When a later script lands, the owning card also updates `pnpm ci` or the release aggregator only if that script belongs to the appropriate PR/merge/release lane. Missing future scripts remain `NOT_RUN`; no-op placeholders are invalid evidence.
+When a later script lands, the owning card also updates `pnpm run ci` or the release aggregator only if that script belongs to the appropriate PR/merge/release lane. Missing future scripts remain `NOT_RUN`; no-op placeholders are invalid evidence.
 
 ## 7. Environment contract
 
@@ -318,9 +318,10 @@ One multi-stage Dockerfile provides targets or role commands for web, API, and w
 - Corepack with `pnpm@11.23.0`;
 - frozen lockfile install;
 - build stage may contain source and dev dependencies;
-- runtime stage contains production output/dependencies only;
+- runtime stage contains only the filtered API/worker production dependency closures plus Next standalone output; test-config, Vitest, build tools, package-manager binaries (`npm`, `npx`, Corepack, `pnpm`, `yarn` and aliases), and unrelated workspace dependencies are absent;
 - `.git`, documentation research caches, tests, local env files, package-manager cache, customer data, and credentials are absent;
-- non-root UID/GID;
+- non-root UID/GID; application files are root-owned and not writable by that runtime identity;
+- Compose application roles use a read-only root filesystem, a bounded `/tmp` tmpfs, `cap_drop: [ALL]`, and `no-new-privileges`;
 - init and signal handling permit graceful shutdown;
 - role is selected by command, not separate source copies;
 - OCI labels include revision supplied as build argument;
@@ -351,7 +352,7 @@ cd /Users/khkim/Projects/agent-workspace
 node --version                         # v24.15.0
 corepack pnpm --version                # 11.23.0
 pnpm install --frozen-lockfile
-pnpm ci
+pnpm run ci
 
 gitleaks detect --no-banner --redact --exit-code 1
 
@@ -375,7 +376,7 @@ Expected invariants:
 
 - all commands exit 0;
 - `git diff --check` is clean;
-- `pnpm ci` invokes only AW-007 real checks;
+- `pnpm run ci` invokes only AW-007 real checks;
 - all six Compose services reach their intended terminal state (`storage-init` successful exit, others healthy/running);
 - app health endpoints return 200 and no secret/version/internal stack details;
 - runtime user is non-root and non-empty;
@@ -391,7 +392,7 @@ If a registry/network outage prevents an image or package fetch, the task is blo
 - [ ] Exact tree and package names exist.
 - [ ] Toolchain and direct dependencies are pinned; `pnpm-lock.yaml` is committed.
 - [ ] Root script namespace matches this manifest exactly.
-- [ ] `pnpm ci` contains only real AW-007 assertions.
+- [ ] `pnpm run ci` contains only real AW-007 assertions.
 - [ ] Boundary invalid fixture proves enforcement.
 - [ ] Compose wrapper works with either plugin or standalone v2.
 - [ ] PostgreSQL, RustFS, storage-init, API, worker, and web complete the smoke path.
