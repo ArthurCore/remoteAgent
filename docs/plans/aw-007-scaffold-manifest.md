@@ -347,7 +347,7 @@ No test may assert only `true`, package identity, or existence without semantic 
 The coder must run all of these and report actual output:
 
 ```bash
-cd /Users/khkim/Projects/agent-workspace
+cd /path/to/agent-workspace
 
 node --version                         # v24.15.0
 corepack pnpm --version                # 11.23.0
