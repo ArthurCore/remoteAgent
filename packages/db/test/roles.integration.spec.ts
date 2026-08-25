@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { access, mkdtemp, readFile, rm, stat } from "node:fs/promises";
 import { hostname, tmpdir } from "node:os";
 import { join } from "node:path";
+import { setTimeout as delay } from "node:timers/promises";
 import { inspect } from "node:util";
 
 import { GenericContainer, getContainerRuntimeClient } from "testcontainers";
@@ -379,11 +380,13 @@ describe.sequential("AW-008D migrator/runtime least privilege", () => {
     const oldCreatedAt = new Date(now.getTime() - 24 * 60 * 60 * 1_000).toISOString();
     const testRunPrefix = `janitor-${randomUUID()}`;
     const otherLiveProcessId = process.ppid;
+    const positivelyDeadProcessId = deadProcessId();
     expect(otherLiveProcessId).toBeGreaterThan(0);
     expect(otherLiveProcessId).not.toBe(process.pid);
     expect(() => process.kill(otherLiveProcessId, 0)).not.toThrow();
 
     const targetContainerIds: string[] = [];
+    const expectedLabelsById = new Map<string, Record<string, string>>();
     let primaryFailure: unknown;
     let primaryFailed = false;
     try {
@@ -391,18 +394,20 @@ describe.sequential("AW-008D migrator/runtime least privilege", () => {
         target: string,
         owner: { host: string; processId: string; instance: string },
       ) => {
+        const labels = {
+          [HARNESS_LABEL]: "postgres",
+          [RUN_ID_LABEL]: `${testRunPrefix}-${target}`,
+          [PROCESS_ID_LABEL]: owner.processId,
+          [PROCESS_INSTANCE_LABEL]: owner.instance,
+          [PROCESS_HOST_LABEL]: owner.host,
+          [CREATED_AT_LABEL]: oldCreatedAt,
+        };
         const started = await new GenericContainer(POSTGRES_TEST_IMAGE)
           .withCommand(["sh", "-c", "while :; do sleep 3600; done"])
-          .withLabels({
-            [HARNESS_LABEL]: "postgres",
-            [RUN_ID_LABEL]: `${testRunPrefix}-${target}`,
-            [PROCESS_ID_LABEL]: owner.processId,
-            [PROCESS_INSTANCE_LABEL]: owner.instance,
-            [PROCESS_HOST_LABEL]: owner.host,
-            [CREATED_AT_LABEL]: oldCreatedAt,
-          })
+          .withLabels(labels)
           .start();
         targetContainerIds.push(started.getId());
+        expectedLabelsById.set(started.getId(), labels);
         return started;
       };
 
@@ -423,7 +428,7 @@ describe.sequential("AW-008D migrator/runtime least privilege", () => {
       });
       const deadLocalProcessRunning = await startTarget("dead-local-process-running", {
         host: hostname(),
-        processId: String(deadProcessId()),
+        processId: String(positivelyDeadProcessId),
         instance: "dead-local-process-instance",
       });
       const oldStopped = await startTarget("old-stopped", {
@@ -431,34 +436,115 @@ describe.sequential("AW-008D migrator/runtime least privilege", () => {
         processId: "invalid",
         instance: "stopped-instance",
       });
-      await oldStopped.stop({ timeout: 10_000, remove: false, removeVolumes: false });
-
       const runtimeClient = await getContainerRuntimeClient();
-      const initialTargets = (
-        await runtimeClient.container.dockerode.listContainers({
-          all: true,
-          filters: { label: [`${HARNESS_LABEL}=postgres`] },
-        })
-      ).filter((container) => targetContainerIds.includes(container.Id));
-      expect(initialTargets).toHaveLength(5);
-      const initialStateById = new Map(
-        initialTargets.map((container) => [container.Id, container.State] as const),
-      );
-      for (const running of [
+      const runningControls = [
         foreignRunning,
         currentProcessRunning,
         otherLiveProcessRunning,
         deadLocalProcessRunning,
-      ]) {
+      ];
+      const observeTargets = async () => {
+        const [listedContainers, inspections] = await Promise.all([
+          runtimeClient.container.dockerode.listContainers({
+            all: true,
+            filters: { label: [`${HARNESS_LABEL}=postgres`] },
+          }),
+          Promise.all(
+            targetContainerIds.map(
+              async (containerId) =>
+                [
+                  containerId,
+                  await runtimeClient.container.inspect(
+                    runtimeClient.container.getById(containerId),
+                  ),
+                ] as const,
+            ),
+          ),
+        ]);
+        const listedTargets = listedContainers.filter((container) =>
+          targetContainerIds.includes(container.Id),
+        );
+        expect(listedTargets).toHaveLength(5);
+        const listedById = new Map(
+          listedTargets.map((container) => [container.Id, container] as const),
+        );
+        const inspectionById = new Map(inspections);
+
+        for (const containerId of targetContainerIds) {
+          const listed = listedById.get(containerId);
+          const expectedLabels = expectedLabelsById.get(containerId);
+          expect(listed, `listed target ${containerId}`).toBeDefined();
+          expect(expectedLabels, `expected labels ${containerId}`).toBeDefined();
+          const relevantLabels = Object.fromEntries(
+            Object.keys(expectedLabels ?? {}).map((label) => [label, listed?.Labels?.[label]]),
+          );
+          expect(relevantLabels, `labels for ${containerId}`).toEqual(expectedLabels);
+          expect(inspectionById.has(containerId), `inspection for ${containerId}`).toBe(true);
+        }
+
+        return { listedTargets, listedById, inspectionById };
+      };
+
+      const preStop = await observeTargets();
+      for (const containerId of targetContainerIds) {
+        expect(preStop.listedById.get(containerId)?.State).toBe("running");
+        expect(preStop.inspectionById.get(containerId)?.State.Running).toBe(true);
+      }
+
+      await oldStopped.stop({ timeout: 10_000, remove: false, removeVolumes: false });
+
+      const waitForStoppedTarget = async () => {
+        const deadline = Date.now() + 10_000;
+        for (;;) {
+          const observation = await observeTargets();
+          for (const running of runningControls) {
+            expect(observation.listedById.get(running.getId())?.State).toBe("running");
+            expect(observation.inspectionById.get(running.getId())?.State.Running).toBe(true);
+          }
+
+          const listedState = observation.listedById.get(oldStopped.getId())?.State;
+          const stoppedInspection = observation.inspectionById.get(oldStopped.getId());
+          if (
+            listedState === "exited" &&
+            stoppedInspection?.State.Running === false &&
+            stoppedInspection.State.Status === "exited"
+          ) {
+            return observation.listedTargets;
+          }
+          if (Date.now() >= deadline) {
+            throw new Error(
+              `Stopped target ${oldStopped.getId()} did not converge: listed=${listedState ?? "missing"}, inspectedRunning=${String(stoppedInspection?.State.Running)}, inspectedStatus=${stoppedInspection?.State.Status ?? "missing"}`,
+            );
+          }
+          await delay(100);
+        }
+      };
+
+      const initialTargets = await waitForStoppedTarget();
+      const initialStateById = new Map(
+        initialTargets.map((container) => [container.Id, container.State] as const),
+      );
+      for (const running of runningControls) {
         expect(initialStateById.get(running.getId())).toBe("running");
         await expect(
           runtimeClient.container.inspect(runtimeClient.container.getById(running.getId())),
         ).resolves.toMatchObject({ State: { Running: true } });
       }
-      expect(initialStateById.get(oldStopped.getId())).not.toBe("running");
+      expect(initialStateById.get(oldStopped.getId())).toBe("exited");
       await expect(
         runtimeClient.container.inspect(runtimeClient.container.getById(oldStopped.getId())),
-      ).resolves.toMatchObject({ State: { Running: false } });
+      ).resolves.toMatchObject({ State: { Running: false, Status: "exited" } });
+
+      expect(() => process.kill(process.pid, 0)).not.toThrow();
+      expect(() => process.kill(otherLiveProcessId, 0)).not.toThrow();
+      let deadProcessError: unknown;
+      try {
+        process.kill(positivelyDeadProcessId, 0);
+      } catch (error) {
+        deadProcessError = error;
+      }
+      expect(errorCode(deadProcessError)).toBe("ESRCH");
+      expect(now.getTime() - Date.parse(oldCreatedAt)).toBeGreaterThanOrEqual(60 * 60 * 1_000);
 
       const removedIds = await cleanupStalePostgresTestContainers({
         now,
@@ -467,11 +553,10 @@ describe.sequential("AW-008D migrator/runtime least privilege", () => {
       const expectedRemovedIds = [deadLocalProcessRunning.getId(), oldStopped.getId()].sort();
       expect([...removedIds].sort()).toEqual(expectedRemovedIds);
 
-      const survivingIds = [
-        foreignRunning.getId(),
-        currentProcessRunning.getId(),
-        otherLiveProcessRunning.getId(),
-      ].sort();
+      const survivingIds = runningControls
+        .filter((running) => running !== deadLocalProcessRunning)
+        .map((running) => running.getId())
+        .sort();
       const listedSurvivingIds = (
         await runtimeClient.container.dockerode.listContainers({
           all: true,
