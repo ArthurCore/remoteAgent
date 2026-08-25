@@ -17,7 +17,7 @@
     "db:migrate": "tsx src/migrate.ts",
     "lint": "eslint src test drizzle.config.ts vitest.config.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test:unit": "vitest run test/schema.spec.ts test/migration.spec.ts",
+    "test:unit": "vitest run test/schema.spec.ts test/migration.spec.ts test/channel-stream-schema.spec.ts",
     "test:integration": "vitest run --config vitest.config.ts --project integration --no-file-parallelism"
   },
   "dependencies": {

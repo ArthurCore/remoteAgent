@@ -92,9 +92,11 @@ const implementationFiles = [
   "packages/db/src/migration-config.ts",
   "packages/db/src/migration-env.ts",
   "packages/db/src/migration-integrity.ts",
+  "packages/db/src/schema/channel-stream.ts",
   "packages/db/src/schema/enums.ts",
   "packages/db/src/schema/foundation.ts",
   "packages/db/src/schema/index.ts",
+  "packages/db/test/channel-stream-schema.spec.ts",
   "packages/db/test/constraints.integration.spec.ts",
   "packages/db/test/fixtures/failing-migration/0000_valid_then_fail.sql",
   "packages/db/test/fixtures/failing-migration/meta/_journal.json",
@@ -186,7 +188,8 @@ const canonicalDbScripts = {
   "db:migrate": "tsx src/migrate.ts",
   lint: "eslint src test drizzle.config.ts vitest.config.ts",
   typecheck: "tsc -p tsconfig.json --noEmit",
-  "test:unit": "vitest run test/schema.spec.ts test/migration.spec.ts",
+  "test:unit":
+    "vitest run test/schema.spec.ts test/migration.spec.ts test/channel-stream-schema.spec.ts",
   "test:integration":
     "vitest run --config vitest.config.ts --project integration --no-file-parallelism",
 };
@@ -381,6 +384,26 @@ const exactAw010aS2FileHashes = new Map([
   [
     "scripts/assert-boundary-fixture.mjs",
     "ba22342d0133de87523d8f0b2d818534d51206dbe0a52e17c373168efd80ab8f",
+  ],
+]);
+
+const exactAw010aS3FileHashes = new Map([
+  [
+    "packages/db/src/schema/channel-stream.ts",
+    "05c7179f0e07504899e04521261adf0ae293c0d3c024bd8fcdd8d17d948cd6dc",
+  ],
+  [
+    "packages/db/src/schema/index.ts",
+    "75c719e164c44937a93e4dca0ac3d8f504870f14c9d00c8c7ec0560d649da16c",
+  ],
+  [
+    "packages/db/test/channel-stream-schema.spec.ts",
+    "8cbc04fcc59c63c0068f4a26f9e3577be984084d0eceb1fde03c3bd6d7d235fd",
+  ],
+  ["packages/db/package.json", "97b666e471eaec49180968fd8d7d08d41e80eaab0da672c739b0f84c4569da2b"],
+  [
+    "packages/db/test/schema.spec.ts",
+    "df6b89171e6ba4e14adac4d76049865fffa3aa7974698387bda9e43de0779d45",
   ],
 ]);
 
@@ -667,6 +690,14 @@ for (const [path, expectedHash] of exactAw010aS2FileHashes) {
   const actualHash = createHash("sha256").update(source).digest("hex");
   if (actualHash !== expectedHash) {
     throw new Error(`${path} does not match the AW-010A S2 byte-exact oracle`);
+  }
+}
+
+for (const [path, expectedHash] of exactAw010aS3FileHashes) {
+  const source = await readFile(resolve(root, path));
+  const actualHash = createHash("sha256").update(source).digest("hex");
+  if (actualHash !== expectedHash) {
+    throw new Error(`${path} does not match the AW-010A S3 byte-exact oracle`);
   }
 }
 
