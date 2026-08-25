@@ -1,0 +1,1115 @@
+{
+  "$defs": {
+    "ActorV1": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": ["human", "service", "system"],
+          "type": "string"
+        },
+        "principal_id": {
+          "$ref": "#/$defs/OpaqueIdV1"
+        }
+      },
+      "required": ["principal_id", "kind"],
+      "type": "object"
+    },
+    "BarrierAppliedResultV1": {
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "ok": {
+              "const": true,
+              "type": "boolean"
+            },
+            "value": {
+              "additionalProperties": false,
+              "properties": {
+                "schema_version": {
+                  "const": 1,
+                  "type": "number"
+                },
+                "state": {
+                  "const": "flushing",
+                  "type": "string"
+                },
+                "subscription_id": {
+                  "$ref": "#/$defs/OpaqueIdV1"
+                }
+              },
+              "required": ["schema_version", "subscription_id", "state"],
+              "type": "object"
+            }
+          },
+          "required": ["ok", "value"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "error": {
+              "$ref": "#/$defs/SyncErrorV1"
+            },
+            "ok": {
+              "const": false,
+              "type": "boolean"
+            }
+          },
+          "required": ["ok", "error"],
+          "type": "object"
+        }
+      ]
+    },
+    "ChannelMemberJoinedV1": {
+      "additionalProperties": false,
+      "properties": {
+        "actor": {
+          "$ref": "#/$defs/ActorV1"
+        },
+        "channel_id": {
+          "$ref": "#/$defs/OpaqueIdV1"
+        },
+        "event_id": {
+          "$ref": "#/$defs/OpaqueIdV1"
+        },
+        "event_seq": {
+          "$ref": "#/$defs/EventSeqV1"
+        },
+        "event_type": {
+          "const": "channel.member_joined",
+          "type": "string"
+        },
+        "occurred_at": {
+          "$ref": "#/$defs/UtcTimestampV1"
+        },
+        "payload": {
+          "additionalProperties": false,
+          "properties": {
+            "history_mode": {
+              "enum": ["full", "since_join"],
+              "type": "string"
+            },
+            "membership_epoch": {
+              "$ref": "#/$defs/OpaqueIdV1"
+            },
+            "principal_id": {
+              "$ref": "#/$defs/OpaqueIdV1"
+            }
+          },
+          "required": ["principal_id", "membership_epoch", "history_mode"],
+          "type": "object"
+        },
+        "schema_version": {
+          "const": 1,
+          "type": "number"
+        },
+        "tenant_id": {
+          "$ref": "#/$defs/OpaqueIdV1"
+        }
+      },
+      "required": [
+        "schema_version",
+        "event_id",
+        "tenant_id",
+        "channel_id",
+        "event_seq",
+        "event_type",
+        "actor",
+        "occurred_at",
+        "payload"
+      ],
+      "type": "object"
+    },
+    "ChannelMemberLeftV1": {
+      "additionalProperties": false,
+      "properties": {
+        "actor": {
+          "$ref": "#/$defs/ActorV1"
+        },
+        "channel_id": {
+          "$ref": "#/$defs/OpaqueIdV1"
+        },
+        "event_id": {
+          "$ref": "#/$defs/OpaqueIdV1"
+        },
+        "event_seq": {
+          "$ref": "#/$defs/EventSeqV1"
+        },
+        "event_type": {
+          "const": "channel.member_left",
+          "type": "string"
+        },
+        "occurred_at": {
+          "$ref": "#/$defs/UtcTimestampV1"
+        },
+        "payload": {
+          "additionalProperties": false,
+          "properties": {
+            "membership_epoch": {
+              "$ref": "#/$defs/OpaqueIdV1"
+            },
+            "principal_id": {
+              "$ref": "#/$defs/OpaqueIdV1"
+            },
+            "reason_code": {
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": ["principal_id", "membership_epoch", "reason_code"],
+          "type": "object"
+        },
+        "schema_version": {
+          "const": 1,
+          "type": "number"
+        },
+        "tenant_id": {
+          "$ref": "#/$defs/OpaqueIdV1"
+        }
+      },
+      "required": [
+        "schema_version",
+        "event_id",
+        "tenant_id",
+        "channel_id",
+        "event_seq",
+        "event_type",
+        "actor",
+        "occurred_at",
+        "payload"
+      ],
+      "type": "object"
+    },
+    "ChannelMemberRevokedV1": {
+      "additionalProperties": false,
+      "properties": {
+        "actor": {
+          "$ref": "#/$defs/ActorV1"
+        },
+        "channel_id": {
+          "$ref": "#/$defs/OpaqueIdV1"
+        },
+        "event_id": {
+          "$ref": "#/$defs/OpaqueIdV1"
+        },
+        "event_seq": {
+          "$ref": "#/$defs/EventSeqV1"
+        },
+        "event_type": {
+          "const": "channel.member_revoked",
+          "type": "string"
+        },
+        "occurred_at": {
+          "$ref": "#/$defs/UtcTimestampV1"
+        },
+        "payload": {
+          "additionalProperties": false,
+          "properties": {
+            "membership_epoch": {
+              "$ref": "#/$defs/OpaqueIdV1"
+            },
+            "principal_id": {
+              "$ref": "#/$defs/OpaqueIdV1"
+            },
+            "reason_code": {
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": ["principal_id", "membership_epoch", "reason_code"],
+          "type": "object"
+        },
+        "schema_version": {
+          "const": 1,
+          "type": "number"
+        },
+        "tenant_id": {
+          "$ref": "#/$defs/OpaqueIdV1"
+        }
+      },
+      "required": [
+        "schema_version",
+        "event_id",
+        "tenant_id",
+        "channel_id",
+        "event_seq",
+        "event_type",
+        "actor",
+        "occurred_at",
+        "payload"
+      ],
+      "type": "object"
+    },
+    "CursorV1": {
+      "maxLength": 4096,
+      "minLength": 1,
+      "type": "string"
+    },
+    "DeltaResponseV1": {
+      "additionalProperties": false,
+      "properties": {
+        "channel_id": {
+          "$ref": "#/$defs/OpaqueIdV1"
+        },
+        "from_cursor": {
+          "$ref": "#/$defs/CursorV1"
+        },
+        "items": {
+          "items": {
+            "$ref": "#/$defs/SyncItemV1"
+          },
+          "maxItems": 500,
+          "type": "array"
+        },
+        "next_cursor": {
+          "$ref": "#/$defs/CursorV1"
+        },
+        "reached_barrier": {
+          "type": "boolean"
+        },
+        "schema_version": {
+          "const": 1,
+          "type": "number"
+        },
+        "tenant_id": {
+          "$ref": "#/$defs/OpaqueIdV1"
+        },
+        "through_cursor": {
+          "$ref": "#/$defs/CursorV1"
+        }
+      },
+      "required": [
+        "schema_version",
+        "tenant_id",
+        "channel_id",
+        "from_cursor",
+        "through_cursor",
+        "items",
+        "next_cursor",
+        "reached_barrier"
+      ],
+      "type": "object"
+    },
+    "DurableEventV1": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/MessageCreatedV1"
+        },
+        {
+          "$ref": "#/$defs/MessageEditedV1"
+        },
+        {
+          "$ref": "#/$defs/MessageDeletedV1"
+        },
+        {
+          "$ref": "#/$defs/ReactionChangedV1"
+        },
+        {
+          "$ref": "#/$defs/ChannelMemberJoinedV1"
+        },
+        {
+          "$ref": "#/$defs/ChannelMemberLeftV1"
+        },
+        {
+          "$ref": "#/$defs/ChannelMemberRevokedV1"
+        }
+      ]
+    },
+    "EventEnvelopeV1": {
+      "additionalProperties": false,
+      "properties": {
+        "actor": {
+          "$ref": "#/$defs/ActorV1"
+        },
+        "channel_id": {
+          "$ref": "#/$defs/OpaqueIdV1"
+        },
+        "event_id": {
+          "$ref": "#/$defs/OpaqueIdV1"
+        },
+        "event_seq": {
+          "$ref": "#/$defs/EventSeqV1"
+        },
+        "event_type": {
+          "$ref": "#/$defs/EventTypeV1"
+        },
+        "occurred_at": {
+          "$ref": "#/$defs/UtcTimestampV1"
+        },
+        "payload": {
+          "additionalProperties": {},
+          "propertyNames": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "schema_version": {
+          "const": 1,
+          "type": "number"
+        },
+        "tenant_id": {
+          "$ref": "#/$defs/OpaqueIdV1"
+        }
+      },
+      "required": [
+        "schema_version",
+        "event_id",
+        "tenant_id",
+        "channel_id",
+        "event_seq",
+        "event_type",
+        "actor",
+        "occurred_at",
+        "payload"
+      ],
+      "type": "object"
+    },
+    "EventSeqV1": {
+      "pattern": "^[1-9][0-9]{0,18}$",
+      "type": "string"
+    },
+    "EventTypeV1": {
+      "pattern": "^[a-z][a-z0-9_]*(?:\\.[a-z][a-z0-9_]*)+$",
+      "type": "string"
+    },
+    "MessageCreatedV1": {
+      "additionalProperties": false,
+      "properties": {
+        "actor": {
+          "$ref": "#/$defs/ActorV1"
+        },
+        "channel_id": {
+          "$ref": "#/$defs/OpaqueIdV1"
+        },
+        "event_id": {
+          "$ref": "#/$defs/OpaqueIdV1"
+        },
+        "event_seq": {
+          "$ref": "#/$defs/EventSeqV1"
+        },
+        "event_type": {
+          "const": "message.created",
+          "type": "string"
+        },
+        "occurred_at": {
+          "$ref": "#/$defs/UtcTimestampV1"
+        },
+        "payload": {
+          "additionalProperties": false,
+          "properties": {
+            "message_id": {
+              "$ref": "#/$defs/OpaqueIdV1"
+            },
+            "resolved_mention_items": {
+              "items": {
+                "$ref": "#/$defs/ResolvedMentionItemV1"
+              },
+              "type": "array"
+            },
+            "resolved_mention_principal_ids": {
+              "items": {
+                "$ref": "#/$defs/OpaqueIdV1"
+              },
+              "type": "array"
+            },
+            "thread_root_id": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/OpaqueIdV1"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "version": {
+              "const": 1,
+              "type": "number"
+            }
+          },
+          "required": [
+            "message_id",
+            "thread_root_id",
+            "version",
+            "resolved_mention_principal_ids",
+            "resolved_mention_items"
+          ],
+          "type": "object"
+        },
+        "schema_version": {
+          "const": 1,
+          "type": "number"
+        },
+        "tenant_id": {
+          "$ref": "#/$defs/OpaqueIdV1"
+        }
+      },
+      "required": [
+        "schema_version",
+        "event_id",
+        "tenant_id",
+        "channel_id",
+        "event_seq",
+        "event_type",
+        "actor",
+        "occurred_at",
+        "payload"
+      ],
+      "type": "object"
+    },
+    "MessageDeletedV1": {
+      "additionalProperties": false,
+      "properties": {
+        "actor": {
+          "$ref": "#/$defs/ActorV1"
+        },
+        "channel_id": {
+          "$ref": "#/$defs/OpaqueIdV1"
+        },
+        "event_id": {
+          "$ref": "#/$defs/OpaqueIdV1"
+        },
+        "event_seq": {
+          "$ref": "#/$defs/EventSeqV1"
+        },
+        "event_type": {
+          "const": "message.deleted",
+          "type": "string"
+        },
+        "occurred_at": {
+          "$ref": "#/$defs/UtcTimestampV1"
+        },
+        "payload": {
+          "additionalProperties": false,
+          "properties": {
+            "message_id": {
+              "$ref": "#/$defs/OpaqueIdV1"
+            },
+            "version": {
+              "$ref": "#/$defs/VersionAfterCreateV1"
+            }
+          },
+          "required": ["message_id", "version"],
+          "type": "object"
+        },
+        "schema_version": {
+          "const": 1,
+          "type": "number"
+        },
+        "tenant_id": {
+          "$ref": "#/$defs/OpaqueIdV1"
+        }
+      },
+      "required": [
+        "schema_version",
+        "event_id",
+        "tenant_id",
+        "channel_id",
+        "event_seq",
+        "event_type",
+        "actor",
+        "occurred_at",
+        "payload"
+      ],
+      "type": "object"
+    },
+    "MessageEditedV1": {
+      "additionalProperties": false,
+      "properties": {
+        "actor": {
+          "$ref": "#/$defs/ActorV1"
+        },
+        "channel_id": {
+          "$ref": "#/$defs/OpaqueIdV1"
+        },
+        "event_id": {
+          "$ref": "#/$defs/OpaqueIdV1"
+        },
+        "event_seq": {
+          "$ref": "#/$defs/EventSeqV1"
+        },
+        "event_type": {
+          "const": "message.edited",
+          "type": "string"
+        },
+        "occurred_at": {
+          "$ref": "#/$defs/UtcTimestampV1"
+        },
+        "payload": {
+          "additionalProperties": false,
+          "properties": {
+            "message_id": {
+              "$ref": "#/$defs/OpaqueIdV1"
+            },
+            "resolved_mention_items": {
+              "items": {
+                "$ref": "#/$defs/ResolvedMentionItemV1"
+              },
+              "type": "array"
+            },
+            "resolved_mention_principal_ids": {
+              "items": {
+                "$ref": "#/$defs/OpaqueIdV1"
+              },
+              "type": "array"
+            },
+            "version": {
+              "$ref": "#/$defs/VersionAfterCreateV1"
+            }
+          },
+          "required": [
+            "message_id",
+            "version",
+            "resolved_mention_principal_ids",
+            "resolved_mention_items"
+          ],
+          "type": "object"
+        },
+        "schema_version": {
+          "const": 1,
+          "type": "number"
+        },
+        "tenant_id": {
+          "$ref": "#/$defs/OpaqueIdV1"
+        }
+      },
+      "required": [
+        "schema_version",
+        "event_id",
+        "tenant_id",
+        "channel_id",
+        "event_seq",
+        "event_type",
+        "actor",
+        "occurred_at",
+        "payload"
+      ],
+      "type": "object"
+    },
+    "OpaqueIdV1": {
+      "maxLength": 255,
+      "minLength": 1,
+      "type": "string"
+    },
+    "ReactionChangedV1": {
+      "additionalProperties": false,
+      "properties": {
+        "actor": {
+          "$ref": "#/$defs/ActorV1"
+        },
+        "channel_id": {
+          "$ref": "#/$defs/OpaqueIdV1"
+        },
+        "event_id": {
+          "$ref": "#/$defs/OpaqueIdV1"
+        },
+        "event_seq": {
+          "$ref": "#/$defs/EventSeqV1"
+        },
+        "event_type": {
+          "const": "reaction.changed",
+          "type": "string"
+        },
+        "occurred_at": {
+          "$ref": "#/$defs/UtcTimestampV1"
+        },
+        "payload": {
+          "additionalProperties": false,
+          "properties": {
+            "message_id": {
+              "$ref": "#/$defs/OpaqueIdV1"
+            },
+            "present": {
+              "type": "boolean"
+            },
+            "reaction_key": {
+              "type": "string"
+            },
+            "reactor_principal_id": {
+              "$ref": "#/$defs/OpaqueIdV1"
+            }
+          },
+          "required": ["message_id", "reactor_principal_id", "reaction_key", "present"],
+          "type": "object"
+        },
+        "schema_version": {
+          "const": 1,
+          "type": "number"
+        },
+        "tenant_id": {
+          "$ref": "#/$defs/OpaqueIdV1"
+        }
+      },
+      "required": [
+        "schema_version",
+        "event_id",
+        "tenant_id",
+        "channel_id",
+        "event_seq",
+        "event_type",
+        "actor",
+        "occurred_at",
+        "payload"
+      ],
+      "type": "object"
+    },
+    "ResolvedMentionItemV1": {
+      "additionalProperties": false,
+      "properties": {
+        "mention_item_id": {
+          "$ref": "#/$defs/OpaqueIdV1"
+        },
+        "principal_id": {
+          "$ref": "#/$defs/OpaqueIdV1"
+        }
+      },
+      "required": ["principal_id", "mention_item_id"],
+      "type": "object"
+    },
+    "SubscribeResultV1": {
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "ok": {
+              "const": true,
+              "type": "boolean"
+            },
+            "value": {
+              "$ref": "#/$defs/SyncSubscriptionReadyV1"
+            }
+          },
+          "required": ["ok", "value"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "error": {
+              "$ref": "#/$defs/SyncErrorV1"
+            },
+            "ok": {
+              "const": false,
+              "type": "boolean"
+            }
+          },
+          "required": ["ok", "error"],
+          "type": "object"
+        }
+      ]
+    },
+    "SyncBarrierAppliedV1": {
+      "additionalProperties": false,
+      "properties": {
+        "barrier_cursor": {
+          "$ref": "#/$defs/CursorV1"
+        },
+        "channel_id": {
+          "$ref": "#/$defs/OpaqueIdV1"
+        },
+        "last_applied_cursor": {
+          "$ref": "#/$defs/CursorV1"
+        },
+        "schema_version": {
+          "const": 1,
+          "type": "number"
+        },
+        "subscription_id": {
+          "$ref": "#/$defs/OpaqueIdV1"
+        }
+      },
+      "required": [
+        "schema_version",
+        "subscription_id",
+        "channel_id",
+        "barrier_cursor",
+        "last_applied_cursor"
+      ],
+      "type": "object"
+    },
+    "SyncDeliveryV1": {
+      "additionalProperties": false,
+      "properties": {
+        "delivery_id": {
+          "$ref": "#/$defs/OpaqueIdV1"
+        },
+        "item": {
+          "$ref": "#/$defs/SyncItemV1"
+        },
+        "phase": {
+          "enum": ["buffered", "live"],
+          "type": "string"
+        },
+        "schema_version": {
+          "const": 1,
+          "type": "number"
+        },
+        "subscription_id": {
+          "$ref": "#/$defs/OpaqueIdV1"
+        }
+      },
+      "required": ["schema_version", "subscription_id", "delivery_id", "phase", "item"],
+      "type": "object"
+    },
+    "SyncErrorCodeV1": {
+      "enum": [
+        "AUTH_REQUIRED",
+        "ACCESS_REVOKED",
+        "CURSOR_INVALID",
+        "CURSOR_EXPIRED",
+        "CURSOR_RANGE_INVALID",
+        "BARRIER_MISMATCH",
+        "SUBSCRIPTION_NOT_FOUND",
+        "UNSUPPORTED_SCHEMA_VERSION",
+        "TEMPORARY_UNAVAILABLE"
+      ],
+      "type": "string"
+    },
+    "SyncErrorV1": {
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "enum": ["retry", "resume", "snapshot", "reauthorize", "update"],
+          "type": "string"
+        },
+        "code": {
+          "$ref": "#/$defs/SyncErrorCodeV1"
+        },
+        "correlation_id": {
+          "$ref": "#/$defs/OpaqueIdV1"
+        },
+        "retry_after_ms": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "retryable": {
+          "type": "boolean"
+        },
+        "schema_version": {
+          "const": 1,
+          "type": "number"
+        }
+      },
+      "required": ["schema_version", "code", "action", "retryable", "correlation_id"],
+      "type": "object"
+    },
+    "SyncItemV1": {
+      "additionalProperties": false,
+      "properties": {
+        "before_cursor": {
+          "$ref": "#/$defs/CursorV1"
+        },
+        "cursor": {
+          "$ref": "#/$defs/CursorV1"
+        },
+        "event": {
+          "$ref": "#/$defs/DurableEventV1"
+        }
+      },
+      "required": ["before_cursor", "cursor", "event"],
+      "type": "object"
+    },
+    "SyncLimitsV1": {
+      "additionalProperties": false,
+      "properties": {
+        "catchup_timeout_ms": {
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991,
+          "type": "integer"
+        },
+        "gap_timeout_ms": {
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991,
+          "type": "integer"
+        },
+        "max_buffered_bytes": {
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991,
+          "type": "integer"
+        },
+        "max_buffered_events": {
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "max_buffered_events",
+        "max_buffered_bytes",
+        "catchup_timeout_ms",
+        "gap_timeout_ms"
+      ],
+      "type": "object"
+    },
+    "SyncLiveV1": {
+      "additionalProperties": false,
+      "properties": {
+        "channel_id": {
+          "$ref": "#/$defs/OpaqueIdV1"
+        },
+        "live_cursor": {
+          "$ref": "#/$defs/CursorV1"
+        },
+        "schema_version": {
+          "const": 1,
+          "type": "number"
+        },
+        "subscription_id": {
+          "$ref": "#/$defs/OpaqueIdV1"
+        }
+      },
+      "required": ["schema_version", "subscription_id", "channel_id", "live_cursor"],
+      "type": "object"
+    },
+    "SyncResyncRequiredV1": {
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "const": "resume",
+          "type": "string"
+        },
+        "channel_id": {
+          "$ref": "#/$defs/OpaqueIdV1"
+        },
+        "code": {
+          "enum": ["BUFFER_OVERFLOW", "HANDSHAKE_TIMEOUT", "SUBSCRIPTION_LOST", "PROTOCOL_GAP"],
+          "type": "string"
+        },
+        "retry_after_ms": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "schema_version": {
+          "const": 1,
+          "type": "number"
+        },
+        "subscription_id": {
+          "$ref": "#/$defs/OpaqueIdV1"
+        }
+      },
+      "required": [
+        "schema_version",
+        "subscription_id",
+        "channel_id",
+        "code",
+        "action",
+        "retry_after_ms"
+      ],
+      "type": "object"
+    },
+    "SyncRevokedV1": {
+      "additionalProperties": false,
+      "properties": {
+        "channel_id": {
+          "$ref": "#/$defs/OpaqueIdV1"
+        },
+        "code": {
+          "const": "ACCESS_REVOKED",
+          "type": "string"
+        },
+        "occurred_at": {
+          "$ref": "#/$defs/UtcTimestampV1"
+        },
+        "purge": {
+          "const": true,
+          "type": "boolean"
+        },
+        "schema_version": {
+          "const": 1,
+          "type": "number"
+        },
+        "subscription_id": {
+          "$ref": "#/$defs/OpaqueIdV1"
+        },
+        "tenant_id": {
+          "$ref": "#/$defs/OpaqueIdV1"
+        }
+      },
+      "required": [
+        "schema_version",
+        "subscription_id",
+        "tenant_id",
+        "channel_id",
+        "code",
+        "purge",
+        "occurred_at"
+      ],
+      "type": "object"
+    },
+    "SyncSubscribeV1": {
+      "additionalProperties": false,
+      "properties": {
+        "after_cursor": {
+          "$ref": "#/$defs/CursorV1"
+        },
+        "channel_id": {
+          "$ref": "#/$defs/OpaqueIdV1"
+        },
+        "request_id": {
+          "$ref": "#/$defs/OpaqueIdV1"
+        },
+        "schema_version": {
+          "const": 1,
+          "type": "number"
+        }
+      },
+      "required": ["schema_version", "request_id", "channel_id", "after_cursor"],
+      "type": "object"
+    },
+    "SyncSubscriptionReadyV1": {
+      "additionalProperties": false,
+      "properties": {
+        "after_cursor": {
+          "$ref": "#/$defs/CursorV1"
+        },
+        "barrier_cursor": {
+          "$ref": "#/$defs/CursorV1"
+        },
+        "channel_id": {
+          "$ref": "#/$defs/OpaqueIdV1"
+        },
+        "lease_expires_at": {
+          "$ref": "#/$defs/UtcTimestampV1"
+        },
+        "limits": {
+          "$ref": "#/$defs/SyncLimitsV1"
+        },
+        "request_id": {
+          "$ref": "#/$defs/OpaqueIdV1"
+        },
+        "schema_version": {
+          "const": 1,
+          "type": "number"
+        },
+        "subscription_id": {
+          "$ref": "#/$defs/OpaqueIdV1"
+        },
+        "tenant_id": {
+          "$ref": "#/$defs/OpaqueIdV1"
+        }
+      },
+      "required": [
+        "schema_version",
+        "request_id",
+        "subscription_id",
+        "tenant_id",
+        "channel_id",
+        "after_cursor",
+        "barrier_cursor",
+        "lease_expires_at",
+        "limits"
+      ],
+      "type": "object"
+    },
+    "SyncUnsubscribeV1": {
+      "additionalProperties": false,
+      "properties": {
+        "channel_id": {
+          "$ref": "#/$defs/OpaqueIdV1"
+        },
+        "schema_version": {
+          "const": 1,
+          "type": "number"
+        },
+        "subscription_id": {
+          "$ref": "#/$defs/OpaqueIdV1"
+        }
+      },
+      "required": ["schema_version", "subscription_id", "channel_id"],
+      "type": "object"
+    },
+    "SyncWireMessageV1": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/DurableEventV1"
+        },
+        {
+          "$ref": "#/$defs/DeltaResponseV1"
+        },
+        {
+          "$ref": "#/$defs/SyncSubscribeV1"
+        },
+        {
+          "$ref": "#/$defs/SyncBarrierAppliedV1"
+        },
+        {
+          "$ref": "#/$defs/SyncDeliveryV1"
+        },
+        {
+          "$ref": "#/$defs/TransportAckV1"
+        },
+        {
+          "$ref": "#/$defs/SyncLiveV1"
+        },
+        {
+          "$ref": "#/$defs/SyncResyncRequiredV1"
+        },
+        {
+          "$ref": "#/$defs/SyncRevokedV1"
+        },
+        {
+          "$ref": "#/$defs/SyncErrorV1"
+        },
+        {
+          "$ref": "#/$defs/SubscribeResultV1"
+        },
+        {
+          "$ref": "#/$defs/BarrierAppliedResultV1"
+        },
+        {
+          "$ref": "#/$defs/SyncUnsubscribeV1"
+        }
+      ]
+    },
+    "TransportAckV1": {
+      "additionalProperties": false,
+      "properties": {
+        "delivery_id": {
+          "$ref": "#/$defs/OpaqueIdV1"
+        },
+        "schema_version": {
+          "const": 1,
+          "type": "number"
+        },
+        "status": {
+          "const": "received",
+          "type": "string"
+        },
+        "subscription_id": {
+          "$ref": "#/$defs/OpaqueIdV1"
+        }
+      },
+      "required": ["schema_version", "subscription_id", "delivery_id", "status"],
+      "type": "object"
+    },
+    "UtcTimestampV1": {
+      "allOf": [
+        {
+          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+        },
+        {
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"
+        }
+      ],
+      "type": "string"
+    },
+    "VersionAfterCreateV1": {
+      "maximum": 9007199254740991,
+      "minimum": 2,
+      "type": "integer"
+    }
+  },
+  "$ref": "#/$defs/SyncWireMessageV1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "x-agent-workspace-artifact-scope": "sync-v1-concrete-core",
+  "x-agent-workspace-generic-factories": [
+    {
+      "blockedOperationId": "getChannelSyncSnapshotV1",
+      "name": "snapshotResponseV1",
+      "requiresAuthoritativeState": true
+    }
+  ]
+}

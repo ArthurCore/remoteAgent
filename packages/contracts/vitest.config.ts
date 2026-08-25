@@ -5,7 +5,7 @@ export default defineConfig({
   ...vitestUnitDefaults,
   test: {
     ...vitestUnitDefaults.test,
-    include: ["test/{primitives,events}.spec.ts"],
+    include: ["test/{primitives,events,sync,artifacts}.spec.ts"],
     passWithNoTests: false,
   },
 });

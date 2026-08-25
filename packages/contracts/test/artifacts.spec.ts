@@ -1,5 +1,28 @@
+import { createHash } from "node:crypto";
+import { spawn, spawnSync } from "node:child_process";
+import {
+  chmodSync,
+  cpSync,
+  lstatSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  readlinkSync,
+  realpathSync,
+  rmSync,
+  symlinkSync,
+  utimesSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join, relative, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
+
+import * as publicContracts from "../src/index.js";
 
 import {
   buildSyncJsonSchemaV1,
@@ -15,6 +38,7 @@ import {
   type JsonValue,
   type SyncArtifactBuildInput,
 } from "../src/artifacts.js";
+import { formatJsonForGeneration } from "../scripts/generate-artifacts.js";
 import {
   ChannelMemberJoinedV1,
   ChannelMemberLeftV1,
@@ -61,6 +85,44 @@ const SCHEMA_FILE = "./sync-v1.schema.json";
 const SNAPSHOT_PATH = "/api/v1/channels/{channel_id}/sync/snapshot";
 const DELTA_PATH = "/api/v1/channels/{channel_id}/sync/events";
 
+const expectedPublicRuntimeExports = [
+  "ActorV1",
+  "BarrierAppliedResultV1",
+  "ChannelMemberJoinedV1",
+  "ChannelMemberLeftV1",
+  "ChannelMemberRevokedV1",
+  "CursorV1",
+  "DeltaResponseV1",
+  "DurableEventV1",
+  "EventEnvelopeV1",
+  "EventSeqV1",
+  "EventTypeV1",
+  "MessageCreatedV1",
+  "MessageDeletedV1",
+  "MessageEditedV1",
+  "OpaqueIdV1",
+  "ReactionChangedV1",
+  "SubscribeResultV1",
+  "SyncBarrierAppliedV1",
+  "SyncDeliveryV1",
+  "SyncErrorCodeV1",
+  "SyncErrorV1",
+  "SyncItemV1",
+  "SyncLimitsV1",
+  "SyncLiveV1",
+  "SyncResyncRequiredV1",
+  "SyncRevokedV1",
+  "SyncSubscribeV1",
+  "SyncSubscriptionReadyV1",
+  "SyncUnsubscribeV1",
+  "TransportAckV1",
+  "UtcTimestampV1",
+  "buildSyncJsonSchemaV1",
+  "buildSyncOpenApiV1",
+  "snapshotResponseV1",
+  "syncArtifactRegistryV1",
+].sort();
+
 const snapshotState = z
   .object({
     channel_revision: z.number().int().nonnegative(),
@@ -92,6 +154,147 @@ const namedSnapshotState = z
 
 const coreInput = { mode: "core" } as const;
 const fullInput = { mode: "full", snapshotState } as const;
+
+const contractsDirectory = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const workspaceDirectory = resolve(contractsDirectory, "../..");
+const pinnedTsxPath = join(workspaceDirectory, "node_modules", ".bin", "tsx");
+const generatedArtifactNames = ["openapi-sync-v1.json", "sync-v1.schema.json"] as const;
+
+type ArtifactSandbox = Readonly<{
+  root: string;
+  contracts: string;
+  generated: string;
+  script: string;
+}>;
+
+type CliResult = Readonly<{
+  status: number | null;
+  signal: NodeJS.Signals | null;
+  stdout: string;
+  stderr: string;
+}>;
+
+function createArtifactSandbox(): ArtifactSandbox {
+  const root = mkdtempSync(join(tmpdir(), "agent-workspace-artifacts-test-"));
+  const contracts = join(root, "packages", "contracts");
+  mkdirSync(contracts, { recursive: true });
+  writeFileSync(join(root, "package.json"), '{"type":"module"}\n', "utf8");
+  symlinkSync(
+    join(workspaceDirectory, "node_modules"),
+    join(root, "node_modules"),
+    process.platform === "win32" ? "junction" : "dir",
+  );
+  symlinkSync(
+    join(contractsDirectory, "node_modules"),
+    join(contracts, "node_modules"),
+    process.platform === "win32" ? "junction" : "dir",
+  );
+  for (const name of ["src", "scripts", "generated"] as const) {
+    cpSync(join(contractsDirectory, name), join(contracts, name), { recursive: true });
+  }
+  return {
+    root,
+    contracts,
+    generated: join(contracts, "generated"),
+    script: join(contracts, "scripts", "generate-artifacts.ts"),
+  };
+}
+
+function runArtifactCli(sandbox: ArtifactSandbox, arguments_: readonly string[] = []): CliResult {
+  const result = spawnSync(pinnedTsxPath, [sandbox.script, ...arguments_], {
+    cwd: sandbox.contracts,
+    encoding: "utf8",
+    timeout: 20_000,
+  });
+  if (result.error !== undefined) {
+    throw result.error;
+  }
+  return {
+    status: result.status,
+    signal: result.signal,
+    stdout: result.stdout,
+    stderr: result.stderr,
+  };
+}
+
+function runArtifactCliConcurrently(sandbox: ArtifactSandbox): Promise<CliResult> {
+  return new Promise((resolvePromise, rejectPromise) => {
+    const child = spawn(pinnedTsxPath, [sandbox.script], {
+      cwd: sandbox.contracts,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    let stdout = "";
+    let stderr = "";
+    child.stdout.setEncoding("utf8");
+    child.stderr.setEncoding("utf8");
+    child.stdout.on("data", (chunk: string) => {
+      stdout += chunk;
+    });
+    child.stderr.on("data", (chunk: string) => {
+      stderr += chunk;
+    });
+    child.once("error", rejectPromise);
+    child.once("close", (status, signal) => {
+      resolvePromise({ status, signal, stdout, stderr });
+    });
+  });
+}
+
+function snapshotTree(root: string): string {
+  const rows: string[] = [];
+  const visit = (path: string): void => {
+    const stats = lstatSync(path);
+    const name = relative(root, path) || ".";
+    const mode = (stats.mode & 0o777).toString(8).padStart(3, "0");
+    if (stats.isSymbolicLink()) {
+      rows.push(`${name}|symlink|${mode}|${readlinkSync(path)}`);
+      return;
+    }
+    if (stats.isDirectory()) {
+      rows.push(`${name}|directory|${mode}`);
+      for (const entry of readdirSync(path).sort()) {
+        visit(join(path, entry));
+      }
+      return;
+    }
+    const bytes = readFileSync(path);
+    rows.push(`${name}|file|${mode}|${createHash("sha256").update(bytes).digest("hex")}`);
+  };
+  visit(root);
+  return rows.join("\n");
+}
+
+function expectExactGeneratedTree(sandbox: ArtifactSandbox): void {
+  expect(readdirSync(sandbox.generated).sort()).toEqual(generatedArtifactNames);
+  for (const name of generatedArtifactNames) {
+    expect(lstatSync(join(sandbox.generated, name)).isFile()).toBe(true);
+  }
+}
+
+function expectNoReplacementResidue(sandbox: ArtifactSandbox): void {
+  expect(
+    readdirSync(sandbox.contracts).filter(
+      (name) => name.startsWith(".generated-backup-") || name.startsWith(".generated-stage-"),
+    ),
+  ).toEqual([]);
+}
+
+function artifactLockBaseName(sandbox: ArtifactSandbox): string {
+  const key = createHash("sha256")
+    .update(realpathSync(sandbox.generated))
+    .digest("hex")
+    .slice(0, 24);
+  return `agent-workspace-contracts-${key}.lock`;
+}
+
+function artifactLockDirectory(sandbox: ArtifactSandbox): string {
+  return join(tmpdir(), artifactLockBaseName(sandbox));
+}
+
+function expectNoArtifactLockResidue(sandbox: ArtifactSandbox): void {
+  const prefix = artifactLockBaseName(sandbox);
+  expect(readdirSync(tmpdir()).filter((name) => name.startsWith(prefix))).toEqual([]);
+}
 
 const expectedRegistry = [
   ["OpaqueIdV1", "primitives", "primitive", OpaqueIdV1],
@@ -233,6 +436,10 @@ function productionRootRefs(document: JsonObject): string[] {
 }
 
 describe("ordered sync artifact registry", () => {
+  it("root-exports exactly the approved public runtime manifest", () => {
+    expect(Object.keys(publicContracts).sort()).toEqual(expectedPublicRuntimeExports);
+  });
+
   it("exactly covers and classifies every approved concrete runtime schema", () => {
     expect(syncArtifactRegistryV1).toHaveLength(expectedRegistry.length);
     expect(
@@ -367,6 +574,7 @@ describe("core JSON Schema and OpenAPI", () => {
     const paths = asObject(document.paths, "paths");
     const components = asObject(document.components, "components");
     const schemas = asObject(components.schemas, "components.schemas");
+    const securitySchemes = asObject(components.securitySchemes, "components.securitySchemes");
 
     expect(document.openapi).toBe("3.1.0");
     expect(document["x-agent-workspace-artifact-scope"]).toBe(CORE_SCOPE);
@@ -383,6 +591,10 @@ describe("core JSON Schema and OpenAPI", () => {
 
     const deltaGet = asObject(asObject(paths[DELTA_PATH], DELTA_PATH).get, "delta GET");
     expect(deltaGet.operationId).toBe("getChannelSyncDeltaV1");
+    expect(securitySchemes).toEqual({
+      SessionAuth: { type: "apiKey", in: "header", name: "Authorization" },
+    });
+    expect(deltaGet.security).toEqual([{ SessionAuth: [] }]);
     expect(Object.keys(asObject(deltaGet.responses, "delta responses"))).toEqual([
       "200",
       "400",
@@ -457,6 +669,7 @@ describe("full snapshot mode", () => {
     expect(paths).toHaveProperty(SNAPSHOT_PATH);
     const snapshotGet = asObject(asObject(paths[SNAPSHOT_PATH], SNAPSHOT_PATH).get, "snapshot GET");
     expect(snapshotGet.operationId).toBe("getChannelSyncSnapshotV1");
+    expect(snapshotGet.security).toEqual([{ SessionAuth: [] }]);
     expect(schemas.ChannelReplicaStateV1).toEqual({
       $ref: `${SCHEMA_FILE}#/$defs/ChannelReplicaStateV1`,
     });
@@ -904,6 +1117,11 @@ describe("full snapshot mode", () => {
 });
 
 describe("deterministic rendering", () => {
+  it("uses deterministic two-space JSON layout without claiming formatter-specific wrapping", () => {
+    const value = { enum: ["human", "service", "system"] };
+    expect(renderJsonArtifact(value)).toBe(`${JSON.stringify(value, null, 2)}\n`);
+  });
+
   it("recursively sorts keys, preserves array order, and emits stable UTF-8 JSON bytes", () => {
     const value: JsonObject = {
       zebra: { second: 2, first: 1 },
@@ -948,6 +1166,37 @@ describe("deterministic rendering", () => {
     });
   });
 
+  it.each([
+    ["root NaN", NaN, "JSON artifact number must be finite at #"],
+    ["object NaN", { value: NaN }, "JSON artifact number must be finite at #/value"],
+    ["array NaN", [NaN], "JSON artifact number must be finite at #/0"],
+    ["root positive infinity", Infinity, "JSON artifact number must be finite at #"],
+    [
+      "object positive infinity",
+      { value: Infinity },
+      "JSON artifact number must be finite at #/value",
+    ],
+    ["array positive infinity", [Infinity], "JSON artifact number must be finite at #/0"],
+    ["root negative infinity", -Infinity, "JSON artifact number must be finite at #"],
+    [
+      "object negative infinity",
+      { value: -Infinity },
+      "JSON artifact number must be finite at #/value",
+    ],
+    ["array negative infinity", [-Infinity], "JSON artifact number must be finite at #/0"],
+    ["root negative zero", -0, "JSON artifact number must not be negative zero at #"],
+    [
+      "object negative zero",
+      { value: -0 },
+      "JSON artifact number must not be negative zero at #/value",
+    ],
+    ["array negative zero", [-0], "JSON artifact number must not be negative zero at #/0"],
+  ])("rejects %s rather than silently rewriting it", (_label, value, message) => {
+    const render = () => renderJsonArtifact(value as JsonValue);
+    expect(render).toThrow(TypeError);
+    expect(render).toThrow(message);
+  });
+
   it("rejects excessive renderer depth with a TypeError instead of a RangeError", () => {
     const root: Record<string, unknown> = {};
     let cursor = root;
@@ -968,4 +1217,241 @@ describe("deterministic rendering", () => {
     expect(renderSyncJsonSchemaV1(fullInput)).toBe(renderSyncJsonSchemaV1(fullInput));
     expect(renderSyncOpenApiV1(fullInput)).toBe(renderSyncOpenApiV1(fullInput));
   });
+
+  it("uses canonical Prettier generation for Unicode and escaped-control content", async () => {
+    const value: JsonObject = {
+      values: [
+        "漢字かな交じり文を十分に長くして表示幅による折り返しを検証する文字列",
+        "絵文字🙂🚀と結合文字e\u0301を含む別の十分に長い文字列",
+      ],
+      escaped_control: "nul:\u0000 tab:\t newline:\n",
+    };
+    const raw = renderJsonArtifact(value);
+    const formatted = await formatJsonForGeneration(raw);
+
+    expect(formatted).toBe(await formatJsonForGeneration(raw));
+    expect(formatted).toContain('"escaped_control": "nul:\\u0000 tab:\\t newline:\\n"');
+    expect(formatted).toMatch(/"values": \[\n/);
+    expect(JSON.parse(formatted)).toEqual({
+      escaped_control: "nul:\u0000 tab:\t newline:\n",
+      values: value.values,
+    });
+  });
+});
+
+describe("artifact generator CLI sandbox", () => {
+  it("checks the exact tree and rejects every unexpected entry without writing it", () => {
+    const sandbox = createArtifactSandbox();
+    try {
+      const baseline = runArtifactCli(sandbox, ["--check"]);
+      expect(baseline.status, baseline.stderr).toBe(0);
+      expectExactGeneratedTree(sandbox);
+
+      const scenarios = [
+        {
+          name: "unexpected-file.json",
+          create: (path: string) => writeFileSync(path, "{}\n", "utf8"),
+          diagnostics: ["unexpected-file.json: unexpected"],
+        },
+        {
+          name: "unexpected-directory",
+          create: (path: string) => mkdirSync(path),
+          diagnostics: ["unexpected-directory: unexpected", "unexpected-directory: nonregular"],
+        },
+        {
+          name: "unexpected-symlink",
+          create: (path: string) => symlinkSync("openapi-sync-v1.json", path),
+          diagnostics: ["unexpected-symlink: unexpected", "unexpected-symlink: nonregular"],
+        },
+      ] as const;
+
+      for (const scenario of scenarios) {
+        const path = join(sandbox.generated, scenario.name);
+        scenario.create(path);
+        const before = snapshotTree(sandbox.generated);
+        const result = runArtifactCli(sandbox, ["--check"]);
+        expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(1);
+        for (const diagnostic of scenario.diagnostics) {
+          expect(result.stderr).toContain(diagnostic);
+        }
+        expect(snapshotTree(sandbox.generated)).toBe(before);
+        rmSync(path, { force: true, recursive: true });
+      }
+    } finally {
+      rmSync(sandbox.root, { force: true, recursive: true });
+    }
+  });
+
+  it("accumulates drift and missing diagnostics without changing either artifact", () => {
+    const sandbox = createArtifactSandbox();
+    try {
+      writeFileSync(join(sandbox.generated, "openapi-sync-v1.json"), '{"drift":true}\n', "utf8");
+      rmSync(join(sandbox.generated, "sync-v1.schema.json"));
+      const before = snapshotTree(sandbox.generated);
+      const result = runArtifactCli(sandbox, ["--check"]);
+
+      expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(1);
+      expect(result.stderr).toContain("openapi-sync-v1.json: drift");
+      expect(result.stderr).toContain("sync-v1.schema.json: missing");
+      expect(snapshotTree(sandbox.generated)).toBe(before);
+    } finally {
+      rmSync(sandbox.root, { force: true, recursive: true });
+    }
+  });
+
+  it("rejects a generated-root symlink without following or changing its external target", () => {
+    const sandbox = createArtifactSandbox();
+    const external = join(sandbox.root, "external-generated");
+    try {
+      cpSync(sandbox.generated, external, { recursive: true });
+      rmSync(sandbox.generated, { recursive: true });
+      symlinkSync(external, sandbox.generated, process.platform === "win32" ? "junction" : "dir");
+      const externalBefore = snapshotTree(external);
+
+      const result = runArtifactCli(sandbox, ["--check"]);
+
+      expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(1);
+      expect(result.stderr).toContain("generated: nonregular");
+      expect(result.stderr).toContain("openapi-sync-v1.json: missing");
+      expect(result.stderr).toContain("sync-v1.schema.json: missing");
+      expect(snapshotTree(external)).toBe(externalBefore);
+    } finally {
+      rmSync(sandbox.root, { force: true, recursive: true });
+    }
+  });
+
+  it("returns rc2 for invalid arguments without writing the target", () => {
+    const sandbox = createArtifactSandbox();
+    try {
+      const before = snapshotTree(sandbox.generated);
+      const result = runArtifactCli(sandbox, ["--check", "unexpected"]);
+      expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(2);
+      expect(result.stderr).toContain("arguments: invalid");
+      expect(snapshotTree(sandbox.generated)).toBe(before);
+      expectNoReplacementResidue(sandbox);
+    } finally {
+      rmSync(sandbox.root, { force: true, recursive: true });
+    }
+  });
+
+  it("generates the exact pair repeatedly with stable bytes and no residue", () => {
+    const sandbox = createArtifactSandbox();
+    try {
+      writeFileSync(join(sandbox.generated, "unexpected.json"), "{}\n", "utf8");
+      const first = runArtifactCli(sandbox);
+      expect(first.status, first.stderr).toBe(0);
+      expectExactGeneratedTree(sandbox);
+      expectNoReplacementResidue(sandbox);
+      const firstTree = snapshotTree(sandbox.generated);
+
+      const second = runArtifactCli(sandbox);
+      expect(second.status, second.stderr).toBe(0);
+      expect(snapshotTree(sandbox.generated)).toBe(firstTree);
+      expectExactGeneratedTree(sandbox);
+      expectNoReplacementResidue(sandbox);
+    } finally {
+      rmSync(sandbox.root, { force: true, recursive: true });
+    }
+  });
+
+  it("serializes two concurrent generators and leaves one exact residue-free pair", async () => {
+    const sandbox = createArtifactSandbox();
+    try {
+      const [first, second] = await Promise.all([
+        runArtifactCliConcurrently(sandbox),
+        runArtifactCliConcurrently(sandbox),
+      ]);
+      expect(first.status, first.stderr).toBe(0);
+      expect(second.status, second.stderr).toBe(0);
+      expectExactGeneratedTree(sandbox);
+      expectNoReplacementResidue(sandbox);
+      expect(runArtifactCli(sandbox, ["--check"]).status).toBe(0);
+    } finally {
+      rmSync(sandbox.root, { force: true, recursive: true });
+    }
+  }, 20_000);
+
+  it("recovers an ownerless acquisition-window lock with two contenders", async () => {
+    const sandbox = createArtifactSandbox();
+    const lock = artifactLockDirectory(sandbox);
+    try {
+      for (let iteration = 0; iteration < 8; iteration += 1) {
+        rmSync(lock, { force: true, recursive: true });
+        mkdirSync(lock, { mode: 0o700 });
+        const [first, second] = await Promise.all([
+          runArtifactCliConcurrently(sandbox),
+          runArtifactCliConcurrently(sandbox),
+        ]);
+        expect(first.status, `iteration ${String(iteration)}: ${first.stderr}`).toBe(0);
+        expect(second.status, `iteration ${String(iteration)}: ${second.stderr}`).toBe(0);
+        expectNoArtifactLockResidue(sandbox);
+      }
+      expectExactGeneratedTree(sandbox);
+      expectNoReplacementResidue(sandbox);
+    } finally {
+      rmSync(lock, { force: true, recursive: true });
+      rmSync(sandbox.root, { force: true, recursive: true });
+    }
+  }, 30_000);
+
+  it("identity-validates dead-owner recovery with two contenders", async () => {
+    const sandbox = createArtifactSandbox();
+    const lock = artifactLockDirectory(sandbox);
+    try {
+      for (let iteration = 0; iteration < 8; iteration += 1) {
+        rmSync(lock, { force: true, recursive: true });
+        mkdirSync(lock, { mode: 0o700 });
+        writeFileSync(
+          join(lock, "owner.json"),
+          `${JSON.stringify({ pid: 2_147_483_647, token: `dead-owner-${String(iteration)}` })}\n`,
+          "utf8",
+        );
+        utimesSync(
+          lock,
+          new Date("2020-01-01T00:00:00.000Z"),
+          new Date("2020-01-01T00:00:00.000Z"),
+        );
+        const [first, second] = await Promise.all([
+          runArtifactCliConcurrently(sandbox),
+          runArtifactCliConcurrently(sandbox),
+        ]);
+        expect(first.status, `iteration ${String(iteration)}: ${first.stderr}`).toBe(0);
+        expect(second.status, `iteration ${String(iteration)}: ${second.stderr}`).toBe(0);
+        expectNoArtifactLockResidue(sandbox);
+      }
+      expectExactGeneratedTree(sandbox);
+      expectNoReplacementResidue(sandbox);
+    } finally {
+      rmSync(lock, { force: true, recursive: true });
+      rmSync(sandbox.root, { force: true, recursive: true });
+    }
+  }, 30_000);
+
+  it("rolls back cleanly when a mode-0500 old target cannot be removed", () => {
+    const sandbox = createArtifactSandbox();
+    try {
+      if (process.platform === "win32") {
+        const result = runArtifactCli(sandbox);
+        expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0);
+        expectExactGeneratedTree(sandbox);
+        expectNoReplacementResidue(sandbox);
+        return;
+      }
+
+      chmodSync(sandbox.generated, 0o500);
+      const protectedTree = snapshotTree(sandbox.generated);
+      const result = runArtifactCli(sandbox);
+
+      expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(1);
+      expect(snapshotTree(sandbox.generated)).toBe(protectedTree);
+      expectNoReplacementResidue(sandbox);
+    } finally {
+      try {
+        chmodSync(sandbox.generated, 0o700);
+      } catch {
+        // The sandbox cleanup remains best-effort if setup failed before the target existed.
+      }
+      rmSync(sandbox.root, { force: true, recursive: true });
+    }
+  }, 20_000);
 });

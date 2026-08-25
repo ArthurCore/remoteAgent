@@ -1058,6 +1058,7 @@ function snapshotOperation(): JsonObject {
   return {
     get: {
       operationId: "getChannelSyncSnapshotV1",
+      security: [{ SessionAuth: [] }],
       parameters: [{ $ref: "#/components/parameters/ChannelId" }],
       responses: {
         "200": {
@@ -1079,6 +1080,7 @@ function deltaOperation(): JsonObject {
   return {
     get: {
       operationId: "getChannelSyncDeltaV1",
+      security: [{ SessionAuth: [] }],
       parameters: [
         { $ref: "#/components/parameters/ChannelId" },
         {
@@ -1154,6 +1156,13 @@ export function buildSyncOpenApiV1(input: SyncArtifactBuildInput): JsonObject {
         : [],
     paths,
     components: {
+      securitySchemes: {
+        SessionAuth: {
+          type: "apiKey",
+          in: "header",
+          name: "Authorization",
+        },
+      },
       parameters: {
         ChannelId: channelIdParameter(),
       },
@@ -1182,6 +1191,15 @@ function sortJsonValue(
 ): JsonValue {
   if (depth > MAX_RENDER_NESTING) {
     throw new TypeError(`JSON artifact nesting exceeds ${String(MAX_RENDER_NESTING)} at ${path}`);
+  }
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) {
+      throw new TypeError(`JSON artifact number must be finite at ${path}`);
+    }
+    if (Object.is(value, -0)) {
+      throw new TypeError(`JSON artifact number must not be negative zero at ${path}`);
+    }
+    return value;
   }
   if (value === null || typeof value !== "object") {
     return value;

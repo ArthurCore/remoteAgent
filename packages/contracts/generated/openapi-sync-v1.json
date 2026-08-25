@@ -1,0 +1,227 @@
+{
+  "components": {
+    "parameters": {
+      "ChannelId": {
+        "in": "path",
+        "name": "channel_id",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/OpaqueIdV1"
+        }
+      }
+    },
+    "responses": {
+      "SyncErrorResponse": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/SyncErrorV1"
+            }
+          }
+        },
+        "description": "Machine-readable sync failure"
+      }
+    },
+    "schemas": {
+      "ActorV1": {
+        "$ref": "./sync-v1.schema.json#/$defs/ActorV1"
+      },
+      "BarrierAppliedResultV1": {
+        "$ref": "./sync-v1.schema.json#/$defs/BarrierAppliedResultV1"
+      },
+      "ChannelMemberJoinedV1": {
+        "$ref": "./sync-v1.schema.json#/$defs/ChannelMemberJoinedV1"
+      },
+      "ChannelMemberLeftV1": {
+        "$ref": "./sync-v1.schema.json#/$defs/ChannelMemberLeftV1"
+      },
+      "ChannelMemberRevokedV1": {
+        "$ref": "./sync-v1.schema.json#/$defs/ChannelMemberRevokedV1"
+      },
+      "CursorV1": {
+        "$ref": "./sync-v1.schema.json#/$defs/CursorV1"
+      },
+      "DeltaResponseV1": {
+        "$ref": "./sync-v1.schema.json#/$defs/DeltaResponseV1"
+      },
+      "DurableEventV1": {
+        "$ref": "./sync-v1.schema.json#/$defs/DurableEventV1"
+      },
+      "EventEnvelopeV1": {
+        "$ref": "./sync-v1.schema.json#/$defs/EventEnvelopeV1"
+      },
+      "EventSeqV1": {
+        "$ref": "./sync-v1.schema.json#/$defs/EventSeqV1"
+      },
+      "EventTypeV1": {
+        "$ref": "./sync-v1.schema.json#/$defs/EventTypeV1"
+      },
+      "MessageCreatedV1": {
+        "$ref": "./sync-v1.schema.json#/$defs/MessageCreatedV1"
+      },
+      "MessageDeletedV1": {
+        "$ref": "./sync-v1.schema.json#/$defs/MessageDeletedV1"
+      },
+      "MessageEditedV1": {
+        "$ref": "./sync-v1.schema.json#/$defs/MessageEditedV1"
+      },
+      "OpaqueIdV1": {
+        "$ref": "./sync-v1.schema.json#/$defs/OpaqueIdV1"
+      },
+      "ReactionChangedV1": {
+        "$ref": "./sync-v1.schema.json#/$defs/ReactionChangedV1"
+      },
+      "ResolvedMentionItemV1": {
+        "$ref": "./sync-v1.schema.json#/$defs/ResolvedMentionItemV1"
+      },
+      "SubscribeResultV1": {
+        "$ref": "./sync-v1.schema.json#/$defs/SubscribeResultV1"
+      },
+      "SyncBarrierAppliedV1": {
+        "$ref": "./sync-v1.schema.json#/$defs/SyncBarrierAppliedV1"
+      },
+      "SyncDeliveryV1": {
+        "$ref": "./sync-v1.schema.json#/$defs/SyncDeliveryV1"
+      },
+      "SyncErrorCodeV1": {
+        "$ref": "./sync-v1.schema.json#/$defs/SyncErrorCodeV1"
+      },
+      "SyncErrorV1": {
+        "$ref": "./sync-v1.schema.json#/$defs/SyncErrorV1"
+      },
+      "SyncItemV1": {
+        "$ref": "./sync-v1.schema.json#/$defs/SyncItemV1"
+      },
+      "SyncLimitsV1": {
+        "$ref": "./sync-v1.schema.json#/$defs/SyncLimitsV1"
+      },
+      "SyncLiveV1": {
+        "$ref": "./sync-v1.schema.json#/$defs/SyncLiveV1"
+      },
+      "SyncResyncRequiredV1": {
+        "$ref": "./sync-v1.schema.json#/$defs/SyncResyncRequiredV1"
+      },
+      "SyncRevokedV1": {
+        "$ref": "./sync-v1.schema.json#/$defs/SyncRevokedV1"
+      },
+      "SyncSubscribeV1": {
+        "$ref": "./sync-v1.schema.json#/$defs/SyncSubscribeV1"
+      },
+      "SyncSubscriptionReadyV1": {
+        "$ref": "./sync-v1.schema.json#/$defs/SyncSubscriptionReadyV1"
+      },
+      "SyncUnsubscribeV1": {
+        "$ref": "./sync-v1.schema.json#/$defs/SyncUnsubscribeV1"
+      },
+      "SyncWireMessageV1": {
+        "$ref": "./sync-v1.schema.json#/$defs/SyncWireMessageV1"
+      },
+      "TransportAckV1": {
+        "$ref": "./sync-v1.schema.json#/$defs/TransportAckV1"
+      },
+      "UtcTimestampV1": {
+        "$ref": "./sync-v1.schema.json#/$defs/UtcTimestampV1"
+      },
+      "VersionAfterCreateV1": {
+        "$ref": "./sync-v1.schema.json#/$defs/VersionAfterCreateV1"
+      }
+    },
+    "securitySchemes": {
+      "SessionAuth": {
+        "in": "header",
+        "name": "Authorization",
+        "type": "apiKey"
+      }
+    }
+  },
+  "info": {
+    "title": "Chat Sync API",
+    "version": "1.0.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/api/v1/channels/{channel_id}/sync/events": {
+      "get": {
+        "operationId": "getChannelSyncDeltaV1",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ChannelId"
+          },
+          {
+            "in": "query",
+            "name": "after",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/CursorV1"
+            }
+          },
+          {
+            "in": "query",
+            "name": "through",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/CursorV1"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 200,
+              "maximum": 500,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeltaResponseV1"
+                }
+              }
+            },
+            "description": "Ascending, fixed-bound delta page"
+          },
+          "400": {
+            "$ref": "#/components/responses/SyncErrorResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/SyncErrorResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/SyncErrorResponse"
+          },
+          "410": {
+            "$ref": "#/components/responses/SyncErrorResponse"
+          },
+          "503": {
+            "$ref": "#/components/responses/SyncErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ]
+      }
+    }
+  },
+  "x-agent-workspace-artifact-scope": "sync-v1-concrete-core",
+  "x-agent-workspace-blocked-operations": [
+    {
+      "operationId": "getChannelSyncSnapshotV1",
+      "reason": "requires follow-up authority for a strict snapshot state schema"
+    }
+  ],
+  "x-agent-workspace-generic-factories": [
+    {
+      "blockedOperationId": "getChannelSyncSnapshotV1",
+      "name": "snapshotResponseV1",
+      "requiresAuthoritativeState": true
+    }
+  ]
+}
