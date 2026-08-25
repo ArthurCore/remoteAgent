@@ -77,7 +77,7 @@ Expected: exit 1 because the journal symbols are absent from root exports; after
 - Modify `packages/db/package.json` to add exactly `test/channel-stream-schema.spec.ts` to `test:unit`
 - Modify `scripts/assert-aw007-tree.mjs` to add only the S3 schema/test surface to the current exact manifest
 
-**Red:** write exactly 6 `AW010A-S3` tests containing 18 assertions for exact two tables/columns/types/PK/FK/check names and forbidden-table absence. Run:
+**Red:** write exactly 6 `AW010A-S3` tests containing 18 assertions for exact two tables/columns/types/PK/FK/check names and normalized predicates, forbidden-table absence, and absence of any new actor-kind/event-type PostgreSQL enum. The check set includes the parent plan's four reviewed S3 corrections: `channel_events_event_id_nonempty_check`, `channel_events_actor_principal_id_nonempty_check`, `channel_events_actor_kind_check`, and `channel_events_payload_object_check`. Run:
 
 ```bash
 pnpm --filter @agent-workspace/db exec vitest run test/channel-stream-schema.spec.ts
