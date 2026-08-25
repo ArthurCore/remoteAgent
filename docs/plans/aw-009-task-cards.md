@@ -224,7 +224,7 @@ For every card: write the named failing test/oracle; run the exact red command; 
 
 **Predecessor:** reviewed D5 commit.
 
-**Exclusive paths:** create `packages/ui/src/tokens.css`, `packages/ui/src/button.tsx`, `packages/ui/src/field.tsx`, `packages/ui/src/dialog.tsx`, `packages/ui/src/badge.tsx`, `packages/ui/test/primitives.spec.tsx`, `packages/ui/vitest.config.ts`; modify `packages/ui/src/index.ts`, `packages/ui/package.json`, `packages/ui/tsconfig.json`.
+**Exclusive paths:** create `packages/ui/src/tokens.css`, `packages/ui/src/button.tsx`, `packages/ui/src/field.tsx`, `packages/ui/src/dialog.tsx`, `packages/ui/src/badge.tsx`, `packages/ui/test/primitives.spec.tsx`, `packages/ui/vitest.config.ts`; modify `packages/ui/src/index.ts`, `packages/ui/package.json`, `packages/ui/tsconfig.json`, `pnpm-lock.yaml` (only the UI importer entries for already pinned Vitest/test-config packages).
 
 **Red:** 14 `AW009-E1` React-element/export/token assertions; `pnpm exec vitest run packages/ui/test/primitives.spec.tsx --config packages/ui/vitest.config.ts` → exit 1, modules unresolved.
 
@@ -232,7 +232,7 @@ For every card: write the named failing test/oracle; run the exact red command; 
 
 **Green:** the exact red command → 14 passed; `pnpm --filter @agent-workspace/ui lint && pnpm --filter @agent-workspace/ui typecheck && pnpm --filter @agent-workspace/ui build` → exit 0.
 
-**Review/commit:** `docs/reviews/aw-009-e1-spec-xhigh.md`, then `docs/reviews/aw-009-e1-ux-accessibility-xhigh.md`; resolve/re-review. Add exact ten paths + reviews; commit `feat: add light chat UI primitives`.
+**Review/commit:** `docs/reviews/aw-009-e1-spec-xhigh.md`, then `docs/reviews/aw-009-e1-ux-accessibility-xhigh.md`; resolve/re-review. Add exact eleven paths + reviews; commit `feat: add light chat UI primitives`.
 
 ## E2 — Runtime same-origin API proxy
 

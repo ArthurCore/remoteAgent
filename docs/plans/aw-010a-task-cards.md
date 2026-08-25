@@ -16,6 +16,7 @@ Cards run strictly `S1 → S2 → S3 → S4 → S5 → S6 → S7 → S8`; the pr
 - Create `packages/chat-core/test/channel-event-journal.spec.ts`
 - Create `packages/chat-core/vitest.config.ts`
 - Modify `packages/chat-core/package.json`
+- Modify `pnpm-lock.yaml` only for the new chat-core importer entries at the already pinned versions
 
 **Red:** create 12 named `AW010A-S1` tests for correlated payload types, trusted actor union, client-envelope exclusion, bigint return, injected clock/ID, and no commit method. Run:
 
@@ -29,7 +30,7 @@ Expected: exit 1, module `src/modules/messaging/channel-event-journal.ts` cannot
 
 **Green:** same command → `12 passed`; `pnpm --filter @agent-workspace/chat-core lint && pnpm --filter @agent-workspace/chat-core typecheck && pnpm --filter @agent-workspace/chat-core test:unit` → exit 0, 12/12.
 
-**Review/commit:** reviewers write `docs/reviews/aw-010a-s1-spec-xhigh.md` then `docs/reviews/aw-010a-s1-quality-security-xhigh.md`; resolve and rerun both. `git add` exactly the four implementation paths plus those two review files; commit `feat: define channel event journal port`.
+**Review/commit:** reviewers write `docs/reviews/aw-010a-s1-spec-xhigh.md` then `docs/reviews/aw-010a-s1-quality-security-xhigh.md`; resolve and rerun both. `git add` exactly the five implementation paths plus those two review files; commit `feat: define channel event journal port`.
 
 ## S2 — Public export and forbidden-dependency fixture
 
@@ -144,6 +145,7 @@ Expected: exit 1 before integration project includes the new file and/or before 
 - Create `apps/api/test/channel-event-journal.spec.ts`
 - Modify `apps/api/package.json`
 - Modify `apps/api/vitest.config.ts`
+- Modify `pnpm-lock.yaml` only for the new API chat-core workspace importer
 
 **Red:** add 16 `AW010A-S6` fake-client tests for tenant-leading lock SQL, missing/exhausted errors, server envelope, actor checks, insert result, and absence of begin/commit. Run:
 
@@ -157,7 +159,7 @@ Expected: exit 1, adapter module unresolved.
 
 **Green:** `pnpm --filter @agent-workspace/api exec vitest run --config vitest.config.ts test/channel-event-journal.spec.ts` → 16 passed; `pnpm --filter @agent-workspace/api lint && pnpm --filter @agent-workspace/api typecheck && pnpm --filter @agent-workspace/api test:unit` → exit 0, health regression plus 16 new tests pass.
 
-**Review/commit:** `docs/reviews/aw-010a-s6-spec-xhigh.md`, `docs/reviews/aw-010a-s6-quality-security-xhigh.md`; fix/re-review; add exact four paths plus reviews; commit `feat: implement channel journal adapter`.
+**Review/commit:** `docs/reviews/aw-010a-s6-spec-xhigh.md`, `docs/reviews/aw-010a-s6-quality-security-xhigh.md`; fix/re-review; add exact five paths plus reviews; commit `feat: implement channel journal adapter`.
 
 ## S7 — Adversarial journal integration
 
