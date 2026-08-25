@@ -187,7 +187,7 @@ contracts test:unit vitest run test/{primitives,events,sync}.spec.ts
 db:generate         drizzle-kit generate --config drizzle.config.ts --name aw008_foundation
 db:check            drizzle-kit check --config drizzle.config.ts && tsx src/migration-integrity.ts --check-files
 db:migrate          tsx src/migrate.ts
-db test:unit        vitest run test/schema.spec.ts
+db test:unit        vitest run test/schema.spec.ts test/migration.spec.ts
 db test:integration vitest run --config vitest.config.ts --project integration --no-file-parallelism
 ```
 
