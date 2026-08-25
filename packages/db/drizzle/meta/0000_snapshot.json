@@ -1,0 +1,673 @@
+{
+  "id": "eaac96c7-0422-4405-a336-442eaa495890",
+  "prevId": "00000000-0000-0000-0000-000000000000",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.channel_membership_epochs": {
+      "name": "channel_membership_epochs",
+      "schema": "",
+      "columns": {
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "channel_id": {
+          "name": "channel_id",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "principal_id": {
+          "name": "principal_id",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "membership_epoch": {
+          "name": "membership_epoch",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "history_mode": {
+          "name": "history_mode",
+          "type": "history_mode_v1",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "joined_event_seq": {
+          "name": "joined_event_seq",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "exited_event_seq": {
+          "name": "exited_event_seq",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp (6) with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "version": {
+          "name": "version",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "1"
+        }
+      },
+      "indexes": {
+        "channel_membership_epochs_one_active_uq": {
+          "name": "channel_membership_epochs_one_active_uq",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "channel_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "principal_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"channel_membership_epochs\".\"exited_event_seq\" IS NULL",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "channel_membership_epochs_principal_idx": {
+          "name": "channel_membership_epochs_principal_idx",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "principal_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "channel_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "exited_event_seq",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "channel_membership_epochs_channel_seq_idx": {
+          "name": "channel_membership_epochs_channel_seq_idx",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "channel_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "joined_event_seq",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "channel_membership_epochs_channel_fk": {
+          "name": "channel_membership_epochs_channel_fk",
+          "tableFrom": "channel_membership_epochs",
+          "tableTo": "channels",
+          "columnsFrom": ["tenant_id", "channel_id"],
+          "columnsTo": ["tenant_id", "channel_id"],
+          "onDelete": "restrict",
+          "onUpdate": "restrict"
+        },
+        "channel_membership_epochs_principal_fk": {
+          "name": "channel_membership_epochs_principal_fk",
+          "tableFrom": "channel_membership_epochs",
+          "tableTo": "principals",
+          "columnsFrom": ["tenant_id", "principal_id"],
+          "columnsTo": ["tenant_id", "principal_id"],
+          "onDelete": "restrict",
+          "onUpdate": "restrict"
+        }
+      },
+      "compositePrimaryKeys": {
+        "channel_membership_epochs_pk": {
+          "name": "channel_membership_epochs_pk",
+          "columns": ["tenant_id", "channel_id", "principal_id", "membership_epoch"]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "channel_membership_epochs_tenant_id_nonempty_ck": {
+          "name": "channel_membership_epochs_tenant_id_nonempty_ck",
+          "value": "length(\"channel_membership_epochs\".\"tenant_id\") > 0"
+        },
+        "channel_membership_epochs_channel_id_nonempty_ck": {
+          "name": "channel_membership_epochs_channel_id_nonempty_ck",
+          "value": "length(\"channel_membership_epochs\".\"channel_id\") > 0"
+        },
+        "channel_membership_epochs_principal_id_nonempty_ck": {
+          "name": "channel_membership_epochs_principal_id_nonempty_ck",
+          "value": "length(\"channel_membership_epochs\".\"principal_id\") > 0"
+        },
+        "channel_membership_epochs_epoch_nonempty_ck": {
+          "name": "channel_membership_epochs_epoch_nonempty_ck",
+          "value": "length(\"channel_membership_epochs\".\"membership_epoch\") > 0"
+        },
+        "channel_membership_epochs_joined_positive_ck": {
+          "name": "channel_membership_epochs_joined_positive_ck",
+          "value": "\"channel_membership_epochs\".\"joined_event_seq\" > 0"
+        },
+        "channel_membership_epochs_exit_after_join_ck": {
+          "name": "channel_membership_epochs_exit_after_join_ck",
+          "value": "\"channel_membership_epochs\".\"exited_event_seq\" IS NULL OR \"channel_membership_epochs\".\"exited_event_seq\" > \"channel_membership_epochs\".\"joined_event_seq\""
+        },
+        "channel_membership_epochs_version_positive_ck": {
+          "name": "channel_membership_epochs_version_positive_ck",
+          "value": "\"channel_membership_epochs\".\"version\" > 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.channels": {
+      "name": "channels",
+      "schema": "",
+      "columns": {
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "workspace_id": {
+          "name": "workspace_id",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "channel_id": {
+          "name": "channel_id",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "kind": {
+          "name": "kind",
+          "type": "channel_kind_v1",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp (6) with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "version": {
+          "name": "version",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "1"
+        }
+      },
+      "indexes": {
+        "channels_workspace_idx": {
+          "name": "channels_workspace_idx",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "workspace_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "channel_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "channels_workspace_fk": {
+          "name": "channels_workspace_fk",
+          "tableFrom": "channels",
+          "tableTo": "workspaces",
+          "columnsFrom": ["tenant_id", "workspace_id"],
+          "columnsTo": ["tenant_id", "workspace_id"],
+          "onDelete": "restrict",
+          "onUpdate": "restrict"
+        }
+      },
+      "compositePrimaryKeys": {
+        "channels_pk": {
+          "name": "channels_pk",
+          "columns": ["tenant_id", "channel_id"]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "channels_tenant_id_nonempty_ck": {
+          "name": "channels_tenant_id_nonempty_ck",
+          "value": "length(\"channels\".\"tenant_id\") > 0"
+        },
+        "channels_workspace_id_nonempty_ck": {
+          "name": "channels_workspace_id_nonempty_ck",
+          "value": "length(\"channels\".\"workspace_id\") > 0"
+        },
+        "channels_channel_id_nonempty_ck": {
+          "name": "channels_channel_id_nonempty_ck",
+          "value": "length(\"channels\".\"channel_id\") > 0"
+        },
+        "channels_version_positive_ck": {
+          "name": "channels_version_positive_ck",
+          "value": "\"channels\".\"version\" > 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.principals": {
+      "name": "principals",
+      "schema": "",
+      "columns": {
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "principal_id": {
+          "name": "principal_id",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "principal_kind": {
+          "name": "principal_kind",
+          "type": "principal_kind_v1",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp (6) with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "version": {
+          "name": "version",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "1"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "principals_tenant_fk": {
+          "name": "principals_tenant_fk",
+          "tableFrom": "principals",
+          "tableTo": "tenants",
+          "columnsFrom": ["tenant_id"],
+          "columnsTo": ["tenant_id"],
+          "onDelete": "restrict",
+          "onUpdate": "restrict"
+        }
+      },
+      "compositePrimaryKeys": {
+        "principals_pk": {
+          "name": "principals_pk",
+          "columns": ["tenant_id", "principal_id"]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "principals_tenant_id_nonempty_ck": {
+          "name": "principals_tenant_id_nonempty_ck",
+          "value": "length(\"principals\".\"tenant_id\") > 0"
+        },
+        "principals_principal_id_nonempty_ck": {
+          "name": "principals_principal_id_nonempty_ck",
+          "value": "length(\"principals\".\"principal_id\") > 0"
+        },
+        "principals_version_positive_ck": {
+          "name": "principals_version_positive_ck",
+          "value": "\"principals\".\"version\" > 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.tenants": {
+      "name": "tenants",
+      "schema": "",
+      "columns": {
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp (6) with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "version": {
+          "name": "version",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "1"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "tenants_pk": {
+          "name": "tenants_pk",
+          "columns": ["tenant_id"]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "tenants_tenant_id_nonempty_ck": {
+          "name": "tenants_tenant_id_nonempty_ck",
+          "value": "length(\"tenants\".\"tenant_id\") > 0"
+        },
+        "tenants_version_positive_ck": {
+          "name": "tenants_version_positive_ck",
+          "value": "\"tenants\".\"version\" > 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.workspace_memberships": {
+      "name": "workspace_memberships",
+      "schema": "",
+      "columns": {
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "workspace_id": {
+          "name": "workspace_id",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "principal_id": {
+          "name": "principal_id",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "role": {
+          "name": "role",
+          "type": "workspace_role_v1",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp (6) with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "version": {
+          "name": "version",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "1"
+        }
+      },
+      "indexes": {
+        "workspace_memberships_principal_idx": {
+          "name": "workspace_memberships_principal_idx",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "principal_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "workspace_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "workspace_memberships_workspace_fk": {
+          "name": "workspace_memberships_workspace_fk",
+          "tableFrom": "workspace_memberships",
+          "tableTo": "workspaces",
+          "columnsFrom": ["tenant_id", "workspace_id"],
+          "columnsTo": ["tenant_id", "workspace_id"],
+          "onDelete": "restrict",
+          "onUpdate": "restrict"
+        },
+        "workspace_memberships_principal_fk": {
+          "name": "workspace_memberships_principal_fk",
+          "tableFrom": "workspace_memberships",
+          "tableTo": "principals",
+          "columnsFrom": ["tenant_id", "principal_id"],
+          "columnsTo": ["tenant_id", "principal_id"],
+          "onDelete": "restrict",
+          "onUpdate": "restrict"
+        }
+      },
+      "compositePrimaryKeys": {
+        "workspace_memberships_pk": {
+          "name": "workspace_memberships_pk",
+          "columns": ["tenant_id", "workspace_id", "principal_id"]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "workspace_memberships_tenant_id_nonempty_ck": {
+          "name": "workspace_memberships_tenant_id_nonempty_ck",
+          "value": "length(\"workspace_memberships\".\"tenant_id\") > 0"
+        },
+        "workspace_memberships_workspace_id_nonempty_ck": {
+          "name": "workspace_memberships_workspace_id_nonempty_ck",
+          "value": "length(\"workspace_memberships\".\"workspace_id\") > 0"
+        },
+        "workspace_memberships_principal_id_nonempty_ck": {
+          "name": "workspace_memberships_principal_id_nonempty_ck",
+          "value": "length(\"workspace_memberships\".\"principal_id\") > 0"
+        },
+        "workspace_memberships_version_positive_ck": {
+          "name": "workspace_memberships_version_positive_ck",
+          "value": "\"workspace_memberships\".\"version\" > 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.workspaces": {
+      "name": "workspaces",
+      "schema": "",
+      "columns": {
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "workspace_id": {
+          "name": "workspace_id",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp (6) with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "version": {
+          "name": "version",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "1"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "workspaces_tenant_fk": {
+          "name": "workspaces_tenant_fk",
+          "tableFrom": "workspaces",
+          "tableTo": "tenants",
+          "columnsFrom": ["tenant_id"],
+          "columnsTo": ["tenant_id"],
+          "onDelete": "restrict",
+          "onUpdate": "restrict"
+        }
+      },
+      "compositePrimaryKeys": {
+        "workspaces_pk": {
+          "name": "workspaces_pk",
+          "columns": ["tenant_id", "workspace_id"]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "workspaces_tenant_id_nonempty_ck": {
+          "name": "workspaces_tenant_id_nonempty_ck",
+          "value": "length(\"workspaces\".\"tenant_id\") > 0"
+        },
+        "workspaces_workspace_id_nonempty_ck": {
+          "name": "workspaces_workspace_id_nonempty_ck",
+          "value": "length(\"workspaces\".\"workspace_id\") > 0"
+        },
+        "workspaces_version_positive_ck": {
+          "name": "workspaces_version_positive_ck",
+          "value": "\"workspaces\".\"version\" > 0"
+        }
+      },
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {
+    "public.channel_kind_v1": {
+      "name": "channel_kind_v1",
+      "schema": "public",
+      "values": ["public", "private", "dm"]
+    },
+    "public.history_mode_v1": {
+      "name": "history_mode_v1",
+      "schema": "public",
+      "values": ["full", "since_join"]
+    },
+    "public.principal_kind_v1": {
+      "name": "principal_kind_v1",
+      "schema": "public",
+      "values": ["human", "service"]
+    },
+    "public.workspace_role_v1": {
+      "name": "workspace_role_v1",
+      "schema": "public",
+      "values": ["owner", "admin", "member", "guest"]
+    }
+  },
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}
