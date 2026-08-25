@@ -12,14 +12,17 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
-    "lint": "eslint src",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "lint": "eslint src test vitest.config.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit && pnpm run typecheck:test",
+    "typecheck:test": "tsc --noEmit --strict --noUncheckedIndexedAccess --exactOptionalPropertyTypes --useUnknownInCatchVariables --module NodeNext --moduleResolution NodeNext --target ES2023 --lib ES2023,DOM,DOM.Iterable --esModuleInterop --forceConsistentCasingInFileNames --isolatedModules --skipLibCheck test/channel-event-journal.spec.ts",
+    "test:unit": "vitest run --config vitest.config.ts"
   },
   "dependencies": {
     "@agent-workspace/config": "workspace:*",
     "@agent-workspace/contracts": "workspace:*"
   },
   "devDependencies": {
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "vitest": "4.1.11"
   }
 }

@@ -56,7 +56,10 @@ const implementationFiles = [
   "apps/worker/vitest.config.ts",
   "packages/chat-core/package.json",
   "packages/chat-core/src/index.ts",
+  "packages/chat-core/src/modules/messaging/channel-event-journal.ts",
+  "packages/chat-core/test/channel-event-journal.spec.ts",
   "packages/chat-core/tsconfig.json",
+  "packages/chat-core/vitest.config.ts",
   "packages/config/package.json",
   "packages/config/src/env.ts",
   "packages/config/test/env.spec.ts",
@@ -148,6 +151,16 @@ const canonicalRootScripts = {
   "compose:reset": "scripts/compose.sh down --volumes --remove-orphans",
   "container:smoke": "scripts/container-smoke.sh",
   ci: "pnpm format:check && pnpm lint && pnpm typecheck && pnpm boundaries:check && pnpm test:unit && pnpm db:check && pnpm scaffold:check && pnpm build",
+};
+
+const canonicalChatCoreScripts = {
+  build: "tsc -p tsconfig.json",
+  clean: "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
+  lint: "eslint src test vitest.config.ts",
+  typecheck: "tsc -p tsconfig.json --noEmit && pnpm run typecheck:test",
+  "typecheck:test":
+    "tsc --noEmit --strict --noUncheckedIndexedAccess --exactOptionalPropertyTypes --useUnknownInCatchVariables --module NodeNext --moduleResolution NodeNext --target ES2023 --lib ES2023,DOM,DOM.Iterable --esModuleInterop --forceConsistentCasingInFileNames --isolatedModules --skipLibCheck test/channel-event-journal.spec.ts",
+  "test:unit": "vitest run --config vitest.config.ts",
 };
 
 const canonicalContractsScripts = {
@@ -242,7 +255,7 @@ const exactDependenciesByManifest = new Map([
         "@agent-workspace/config": "workspace:*",
         "@agent-workspace/contracts": "workspace:*",
       },
-      devDependencies: { typescript: "5.9.3" },
+      devDependencies: { typescript: "5.9.3", vitest: "4.1.11" },
     },
   ],
   [
@@ -326,6 +339,21 @@ allowBuilds:
   "ssh2@1.17.0": false
 minimumReleaseAgeExclude:
   - "@types/react-dom@19.2.5"
+`;
+
+const canonicalChatCoreVitestConfig = `import { defineConfig } from "vitest/config";
+
+export default defineConfig({
+  root: import.meta.dirname,
+  test: {
+    environment: "node",
+    globals: false,
+    passWithNoTests: false,
+    clearMocks: true,
+    restoreMocks: true,
+    include: ["test/channel-event-journal.spec.ts"],
+  },
+});
 `;
 
 const canonicalWorkflow = `name: CI
@@ -567,6 +595,16 @@ for (const field of [
   }
 }
 
+const chatCorePackage = await readJson("packages/chat-core/package.json");
+assertExactObject(
+  "Chat-core package scripts",
+  chatCorePackage.scripts ?? {},
+  canonicalChatCoreScripts,
+);
+assertExactObject("Chat-core public exports", chatCorePackage.exports, {
+  ".": { types: "./src/index.ts", import: "./dist/index.js" },
+});
+
 const contractsPackage = await readJson("packages/contracts/package.json");
 assertExactObject(
   "Contracts package scripts",
@@ -582,6 +620,14 @@ assertExactObject("DB package scripts", dbPackage.scripts ?? {}, canonicalDbScri
 assertExactObject("DB public exports", dbPackage.exports, {
   ".": { types: "./src/index.ts", import: "./dist/index.js" },
 });
+
+const chatCoreVitestConfig = await readFile(
+  resolve(root, "packages/chat-core/vitest.config.ts"),
+  "utf8",
+);
+if (chatCoreVitestConfig !== canonicalChatCoreVitestConfig) {
+  throw new Error("Chat-core Vitest config does not match the AW-010A S1 exact oracle");
+}
 
 const workspacePolicy = await readFile(resolve(root, "pnpm-workspace.yaml"), "utf8");
 if (workspacePolicy !== canonicalWorkspacePolicy) {
