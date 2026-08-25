@@ -158,7 +158,7 @@ const canonicalContractsScripts = {
     "tsx scripts/generate-artifacts.ts --check && vitest run test/artifacts.spec.ts",
   lint: "eslint src test scripts vitest.config.ts",
   typecheck: "tsc -p tsconfig.json --noEmit",
-  "test:unit": "vitest run test/{primitives,events,sync}.spec.ts",
+  "test:unit": "vitest run test/primitives.spec.ts test/events.spec.ts test/sync.spec.ts",
 };
 
 const canonicalDbScripts = {

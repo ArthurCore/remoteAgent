@@ -183,7 +183,7 @@ Package bodies:
 ```text
 contracts:generate  tsx scripts/generate-artifacts.ts
 contracts:check     tsx scripts/generate-artifacts.ts --check && vitest run test/artifacts.spec.ts
-contracts test:unit vitest run test/{primitives,events,sync}.spec.ts
+contracts test:unit vitest run test/primitives.spec.ts test/events.spec.ts test/sync.spec.ts
 db:generate         drizzle-kit generate --config drizzle.config.ts --name aw008_foundation
 db:check            drizzle-kit check --config drizzle.config.ts && tsx src/migration-integrity.ts --check-files
 db:migrate          tsx src/migrate.ts
