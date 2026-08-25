@@ -16,13 +16,17 @@
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "boundaries:check": "depcruise --config .dependency-cruiser.cjs apps packages && node scripts/assert-boundary-fixture.mjs",
+    "db:generate": "pnpm --filter @agent-workspace/db db:generate",
+    "db:check": "pnpm --filter @agent-workspace/contracts contracts:check && pnpm --filter @agent-workspace/db db:check",
+    "db:migrate": "pnpm --filter @agent-workspace/db db:migrate",
     "test:unit": "turbo run test:unit",
+    "test:integration": "pnpm --filter @agent-workspace/db test:integration",
     "scaffold:check": "node scripts/assert-aw007-tree.mjs",
     "compose:up": "scripts/compose.sh up -d --build --wait",
     "compose:down": "scripts/compose.sh down --remove-orphans",
     "compose:reset": "scripts/compose.sh down --volumes --remove-orphans",
     "container:smoke": "scripts/container-smoke.sh",
-    "ci": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm boundaries:check && pnpm test:unit && pnpm scaffold:check && pnpm build"
+    "ci": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm boundaries:check && pnpm test:unit && pnpm db:check && pnpm scaffold:check && pnpm build"
   },
   "devDependencies": {
     "@types/node": "24.13.3",
