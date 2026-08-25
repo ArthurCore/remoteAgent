@@ -18,7 +18,7 @@
 | `@testcontainers/postgresql@12.1.0` | isolated real PostgreSQL fixture | `packages/db` devDependency | Docker required in PR; no production runtime package |
 | `fast-check@4.9.0` | L1 property tests for wire bigint/cursor/ID invariants | `packages/contracts` devDependency | unit-test graph only; seeds recorded |
 
-Zod 4.4.3 built-in JSON Schema conversion is used; no OpenAPI generator or Testcontainers replacement is added. Implementation waits for user approval of this list.
+Zod 4.4.3 built-in JSON Schema conversion is used; no OpenAPI generator or Testcontainers replacement is added. The user also approved explicit `allowBuilds: false` for transitive `protobufjs@7.6.5`, `ssh2@1.17.0`, and `cpu-features@0.0.10`: their scripts are compatibility warnings or optional native accelerators, while denial prevents transitive install-time code execution and keeps CI frozen install strict.
 
 ## 3. Revised decisions for xhigh approval
 | ID | Revision-2 recommendation |
@@ -36,6 +36,7 @@ A  .github/workflows/ci.yml
 M  .gitignore
 M  package.json
 M  pnpm-lock.yaml
+M  pnpm-workspace.yaml
 M  turbo.json
 M  .dependency-cruiser.cjs
 M  Dockerfile
@@ -150,7 +151,6 @@ No implicit PostgreSQL FK index is assumed; only the literal indexes above satis
 - Atomicity claim is narrow: Drizzle wraps each pending migration SQL plus ledger insert; schema/table bootstrap occurs before that transaction. Tests separately cover bootstrap privilege failure, a synthetic partially-valid failing migration leaving no object/ledger row, second-run no-op, one ledger row, hash drift, compiled folder and pool closure.
 
 ## 8. Least-privilege database roles
-
 Local cold-volume Postgres entrypoint mounts `scripts/postgres/init-roles.sh` and creates synthetic roles without shell tracing:
 
 - owner/bootstrap: local Postgres initialization only; not passed to app roles;
@@ -227,8 +227,8 @@ The final root `ci` value is exactly `pnpm format:check && pnpm lint && pnpm typ
 - Add migration artifacts/service and role-separated URLs; run cold volume, seven service states, ledger/hash/grant/runtime-DDL denial and teardown.
 
 ### AW-008F — Workspace/PR integration (build/CI/boundary specialist)
-- **Owns exclusively:** root and both package manifests, lockfile, turbo/dependency rules/tree checker, `.gitignore`, `.github/workflows/ci.yml`.
-- **F0 dependency bootstrap (before A/B):** install only the three user-approved exact dev pins, add all frozen package/root script bodies, generate one lockfile, and verify package-level commands are executable. No other card edits manifests/lock.
+- **Owns exclusively:** root and both package manifests, lockfile, `pnpm-workspace.yaml`, turbo/dependency rules/tree checker, `.gitignore`, `.github/workflows/ci.yml`.
+- **F0 dependency bootstrap (before A/B):** install only the three user-approved exact dev pins, deny the three reviewed transitive lifecycle scripts, add all frozen package/root script bodies, generate one lockfile, and prove CI-mode frozen install. No other card edits manifests/lock/workspace policy.
 - **F1 final integration (after E):** reconcile the same owner-controlled lock without new dependencies, enforce AW-008 tree/boundaries and immutable action SHAs, then run frozen/uncached local+PR gates.
 
 ### AW-008G — Evidence handoff (independent verifier)
