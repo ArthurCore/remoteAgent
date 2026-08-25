@@ -1,0 +1,38 @@
+name: CI
+
+"on":
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    name: Frozen uncached CI and integration
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+      - name: Set up Node.js
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: 24.15.0
+      - name: Enable Corepack and pin pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@11.23.0 --activate
+      - name: Install frozen dependencies
+        run: CI=true pnpm install --frozen-lockfile
+      - name: Run uncached CI
+        run: TURBO_FORCE=true pnpm run ci
+      - name: Run Testcontainers integration
+        env:
+          AW008D_TEST_EVIDENCE_DIRECTORY: ${{ github.workspace }}/artifacts/testcontainers
+        run: pnpm test:integration
+      - name: Upload Testcontainers evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: aw008d-testcontainers-evidence
+          path: artifacts/testcontainers/*.json
+          if-no-files-found: error

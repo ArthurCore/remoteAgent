@@ -1,18 +1,31 @@
-const fixtureMode = process.env.AW007_BOUNDARY_FIXTURE === "1";
+const fixtureMode = process.env.AW008_BOUNDARY_FIXTURE === "1";
 
 module.exports = {
   forbidden: [
     {
-      name: "no-circular-dependencies",
+      name: "no-runtime-circular-dependencies",
       severity: "error",
       from: {},
-      to: { circular: true },
+      to: {
+        circular: true,
+        viaOnly: { dependencyTypesNot: ["type-only"] },
+      },
     },
+    ...(!fixtureMode
+      ? [
+          {
+            name: "no-unresolvable-dependencies",
+            severity: "error",
+            from: {},
+            to: { couldNotResolve: true },
+          },
+        ]
+      : []),
     {
       name: "web-must-not-import-db",
       severity: "error",
       from: { path: "^apps/web/" },
-      to: { path: "^(?:packages/db/|@agent-workspace/db)$" },
+      to: { path: "^(?:packages/db/|@agent-workspace/db(?:/|$))" },
     },
     {
       name: "packages-must-not-import-apps",
@@ -27,11 +40,11 @@ module.exports = {
       to: { path: "^apps/(?!$1/)" },
     },
     {
-      name: "packages-must-use-public-entry-points",
+      name: "cross-package-imports-must-use-public-entry-points",
       severity: "error",
-      from: { path: "^(?:apps|packages)/" },
+      from: { path: "^(?:apps|packages)/([^/]+)/" },
       to: {
-        path: "^packages/[^/]+/src/.+",
+        path: "^packages/(?!$1/)[^/]+/src/.+",
         pathNot:
           "^packages/(?:[^/]+/src/index\\.ts|config/src/env\\.ts|test-config/src/vitest\\.ts)$",
       },
@@ -40,32 +53,48 @@ module.exports = {
       name: "chat-core-dependencies-are-restricted",
       severity: "error",
       from: { path: "^packages/chat-core/" },
-      to: { path: "^packages/(?!(?:contracts|config)/)" },
+      to: { path: "^packages/(?!(?:chat-core|contracts|config)/)" },
     },
     {
-      name: "contracts-have-no-internal-dependencies",
+      name: "contracts-runtime-has-no-workspace-dependencies",
       severity: "error",
-      from: { path: "^packages/contracts/" },
+      from: { path: "^packages/contracts/src/" },
       to: { path: "^packages/(?!contracts/)" },
     },
+
     {
-      name: "db-internal-dependencies-are-restricted",
+      name: "contracts-test-workspace-dependencies-are-restricted",
+      severity: "error",
+      from: { path: "^packages/contracts/(?!src/)" },
+      to: { path: "^packages/(?!(?:contracts|test-config)/)" },
+    },
+
+    {
+      name: "db-must-not-import-apps",
       severity: "error",
       from: { path: "^packages/db/" },
-      to: { path: "^packages/(?!(?:db|config)/)" },
+      to: { path: "^apps/" },
+    },
+    {
+      name: "db-workspace-dependencies-are-restricted",
+      severity: "error",
+      from: { path: "^packages/db/" },
+      to: { path: "^packages/(?!(?:db|config|test-config)/)" },
     },
     {
       name: "ui-must-not-import-server-packages",
       severity: "error",
       from: { path: "^packages/ui/" },
-      to: { path: "^packages/(?:db|config|chat-core)/" },
+      to: {
+        path: "^(?:packages/(?:db|config|chat-core)/|@agent-workspace/(?:db|config|chat-core)(?:/|$))",
+      },
     },
     {
-      name: "vendor-agent-sdks-are-not-in-aw007",
+      name: "vendor-agent-sdks-are-not-in-aw008",
       severity: "error",
       from: {},
       to: {
-        path: "node_modules/(?:\.pnpm/)?(?:@anthropic-ai|@langchain|openai-agents|agentkit)(?:[/@])",
+        path: "node_modules/(?:\\.pnpm/)?(?:@anthropic-ai|@langchain|openai-agents|agentkit)(?:[/@])",
       },
     },
   ],
@@ -73,8 +102,8 @@ module.exports = {
     doNotFollow: { path: "node_modules" },
     exclude: {
       path: fixtureMode
-        ? "(^|/)(?:dist|\\.next|node_modules)/"
-        : "(^|/)(?:dist|\\.next|node_modules)/|^apps/web/test/fixtures/forbidden-db-import\\.ts$",
+        ? "(^|/)(?:dist|\\.next|coverage)/"
+        : "(^|/)(?:dist|\\.next|coverage)/|^apps/web/test/fixtures/forbidden-db-import\\.ts$",
     },
     tsPreCompilationDeps: true,
     tsConfig: { fileName: "tsconfig.base.json" },
