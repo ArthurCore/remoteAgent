@@ -60,15 +60,15 @@
 
 | Column | Contract |
 |---|---|
-| `tenant_id`, `channel_id` | non-null opaque IDs |
+| `tenant_id`, `channel_id` | `varchar(255)`, non-null opaque IDs |
 | `event_seq` | signed `bigint`, non-null, check `> 0` |
 | `event_id` | `varchar(255)`, non-null, nonempty, globally unique |
-| `schema_version` | integer/smallint literal `1` |
-| `event_type` | exact seven-event v1 discriminant; no unregistered value |
-| `actor_principal_id` | non-null opaque ID from the canonical actor envelope |
-| `actor_kind` | exact `human | service | system`; do not reuse DB `principal_kind_v1`, which intentionally excludes system |
+| `schema_version` | `integer`, non-null, no default; server-supplied literal `1` |
+| `event_type` | `text`, non-null; exact seven-event v1 discriminant; no unregistered value |
+| `actor_principal_id` | `varchar(255)`, non-null opaque ID from the canonical actor envelope |
+| `actor_kind` | `text`, non-null; exact `human | service | system`; do not reuse DB `principal_kind_v1`, which intentionally excludes system |
 | `occurred_at` | `timestamptz(6)`, non-null |
-| `payload` | non-null JSON object; strict payload semantics remain enforced by `DurableEventV1` before insert and after read |
+| `payload` | `jsonb`, non-null JSON object; strict payload semantics remain enforced by `DurableEventV1` before insert and after read |
 | `created_at` | `timestamptz(6)`, non-null, default `now()` |
 
 - Primary key `channel_events_pkey`: `(tenant_id, channel_id, event_seq)`.

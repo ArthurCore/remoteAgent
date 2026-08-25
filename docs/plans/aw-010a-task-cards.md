@@ -85,7 +85,7 @@ pnpm --filter @agent-workspace/db exec vitest run test/channel-stream-schema.spe
 
 Expected: exit 1, `src/schema/channel-stream.ts` unresolved.
 
-**Minimum green:** declare only `channelEventSequences` and `channelEvents` using the parent plan's exact SQL names; export from schema index. Trigger/function/FK alterations remain S4 SQL.
+**Minimum green:** declare only `channelEventSequences` and `channelEvents` using the parent plan's exact SQL names and reviewed scalar types (`integer` schema version with no default, `text` event/actor discriminants, `jsonb` payload); export from schema index. Trigger/function/FK alterations remain S4 SQL. Do not introduce actor-kind or event-type enums.
 
 **Green:** `pnpm --filter @agent-workspace/db exec vitest run test/channel-stream-schema.spec.ts` → 6 tests and 18 assertions passed; `pnpm --filter @agent-workspace/db lint && pnpm --filter @agent-workspace/db typecheck && pnpm --filter @agent-workspace/db test:unit` → exit 0 with zero skipped/todo.
 
