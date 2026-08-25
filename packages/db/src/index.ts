@@ -1,6 +1,8 @@
 import type { Environment } from "@agent-workspace/config";
 import { Pool } from "pg";
 
+export * from "./schema/index.js";
+
 const dependencyTimeoutMs = 1_500;
 
 export type DatabasePool = Pool;
