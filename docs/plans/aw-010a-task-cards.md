@@ -44,6 +44,7 @@ Expected: exit 1, module `src/modules/messaging/channel-event-journal.ts` cannot
 - Modify `packages/chat-core/src/index.ts`
 - Create `packages/chat-core/test/public-api.spec.ts`
 - Create `packages/chat-core/test/fixtures/forbidden-db-import.ts`
+- Modify `apps/web/test/fixtures/forbidden-db-import.ts` to use its exact resolved relative DB public entry so fixture mode never disables unresolved-import enforcement
 - Modify `packages/chat-core/vitest.config.ts` to add exactly `test/public-api.spec.ts` to canonical unit selection
 - Modify `packages/chat-core/package.json` to add exactly `test/public-api.spec.ts` to `typecheck:test`
 - Modify `.dependency-cruiser.cjs`
@@ -62,7 +63,7 @@ Expected: exit 1 because the journal symbols are absent from root exports; after
 
 **Green:** exact command → 4 passed and boundary exit 0; `pnpm --filter @agent-workspace/chat-core test:unit` → 16/16.
 
-**Review/commit:** `docs/reviews/aw-010a-s2-spec-xhigh.md`, then `docs/reviews/aw-010a-s2-quality-security-xhigh.md`; fix/re-review. Add exactly the eight implementation paths and two review docs; commit `test: freeze channel journal boundary`.
+**Review/commit:** `docs/reviews/aw-010a-s2-spec-xhigh.md`, then `docs/reviews/aw-010a-s2-quality-security-xhigh.md`; fix/re-review. Add exactly the nine implementation paths and two review docs; commit `test: freeze channel journal boundary`.
 
 ## S3 — Current Drizzle stream declarations
 
