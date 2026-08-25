@@ -74,6 +74,7 @@ Expected: exit 1 because the journal symbols are absent from root exports; after
 - Create `packages/db/src/schema/channel-stream.ts`
 - Modify `packages/db/src/schema/index.ts`
 - Create `packages/db/test/channel-stream-schema.spec.ts`
+- Modify `packages/db/test/schema.spec.ts` only to add `channelEventSequences` and `channelEvents` to its exact public DB export expectation; preserve every existing AW-008 schema and role assertion
 - Modify `packages/db/package.json` to add exactly `test/channel-stream-schema.spec.ts` to `test:unit`
 - Modify `scripts/assert-aw007-tree.mjs` to add only the S3 schema/test surface to the current exact manifest
 
@@ -89,7 +90,7 @@ Expected: exit 1, `src/schema/channel-stream.ts` unresolved.
 
 **Green:** `pnpm --filter @agent-workspace/db exec vitest run test/channel-stream-schema.spec.ts` → 6 tests and 18 assertions passed; `pnpm --filter @agent-workspace/db lint && pnpm --filter @agent-workspace/db typecheck && pnpm --filter @agent-workspace/db test:unit` → exit 0 with zero skipped/todo.
 
-**Review/commit:** exact review files `docs/reviews/aw-010a-s3-spec-xhigh.md` and `docs/reviews/aw-010a-s3-quality-security-xhigh.md`; fix/re-review; add the five implementation paths plus reviews; commit `feat: declare channel stream schema`.
+**Review/commit:** exact review files `docs/reviews/aw-010a-s3-spec-xhigh.md` and `docs/reviews/aw-010a-s3-quality-security-xhigh.md`; fix/re-review; add the six implementation paths plus reviews; commit `feat: declare channel stream schema`.
 
 ## S4 — Generate and freeze `0001_aw010a_channel_stream`
 
