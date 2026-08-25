@@ -17,6 +17,7 @@ import {
 } from "../src/migration-integrity.js";
 import { runMigrations, type MigrationClient } from "../src/migrate.js";
 import {
+  POSTGRES_TEST_EVIDENCE_DIRECTORY_ENV,
   POSTGRES_TEST_IMAGE,
   startPostgresTestHarness,
   type PostgresTestHarness,
@@ -38,6 +39,7 @@ const EXPECTED_TABLE_NAMES = [
   "workspace_memberships",
   "workspaces",
 ] as const;
+let retainedEvidenceExpected = false;
 type LedgerRow = {
   id: number;
   created_at: string;
@@ -249,6 +251,7 @@ async function containerResidue(labelFilter: string): Promise<string[]> {
 }
 
 beforeAll(async () => {
+  retainedEvidenceExpected = process.env[POSTGRES_TEST_EVIDENCE_DIRECTORY_ENV] !== undefined;
   harness = await startPostgresTestHarness();
 }, HARNESS_START_TIMEOUT_MILLISECONDS);
 
@@ -286,17 +289,29 @@ afterAll(async () => {
     }
   }
 
-  try {
-    await access(currentHarness.evidencePath);
-    failures.push(new Error("Harness evidence directory remained after cleanup"));
-  } catch (error) {
-    if (
-      typeof error !== "object" ||
-      error === null ||
-      !("code" in error) ||
-      error.code !== "ENOENT"
-    ) {
+  if (retainedEvidenceExpected) {
+    try {
+      await access(currentHarness.evidencePath);
+      const retainedEvidence: unknown = JSON.parse(
+        await readFile(currentHarness.evidencePath, "utf8"),
+      );
+      expect(retainedEvidence).toStrictEqual(currentHarness.evidence);
+    } catch (error) {
       failures.push(error);
+    }
+  } else {
+    try {
+      await access(currentHarness.evidencePath);
+      failures.push(new Error("Temporary harness evidence remained after cleanup"));
+    } catch (error) {
+      if (
+        typeof error !== "object" ||
+        error === null ||
+        !("code" in error) ||
+        error.code !== "ENOENT"
+      ) {
+        failures.push(error);
+      }
     }
   }
 
