@@ -1,3 +1,4 @@
+import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -10,6 +11,29 @@ import {
 } from "../src/primitives.js";
 import { ResolvedMentionItemV1, VersionAfterCreateV1 } from "../src/events.js";
 
+const MAX_PG_BIGINT = 9_223_372_036_854_775_807n;
+const PROPERTY_CASES = {
+  opaqueIdAccepted: { seed: 8_008_001, numRuns: 256 },
+  opaqueIdRejected: { seed: 8_008_002, numRuns: 256 },
+  cursorAccepted: { seed: 8_008_003, numRuns: 128 },
+  cursorRejected: { seed: 8_008_004, numRuns: 64 },
+  eventSeqAccepted: { seed: 8_008_005, numRuns: 512 },
+  eventSeqRejected: { seed: 8_008_006, numRuns: 512 },
+} as const;
+const wireCharacter = fc.constantFrom(
+  ..."abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-".split(""),
+);
+
+function wireAsciiString(minLength: number, maxLength: number): fc.Arbitrary<string> {
+  return fc
+    .integer({ min: minLength, max: maxLength })
+    .chain((length) =>
+      fc
+        .array(wireCharacter, { minLength: length, maxLength: length })
+        .map((characters) => characters.join("")),
+    );
+}
+
 describe("OpaqueIdV1", () => {
   it("accepts the inclusive one-to-255-character bounds", () => {
     expect(OpaqueIdV1.parse("x")).toBe("x");
@@ -20,6 +44,35 @@ describe("OpaqueIdV1", () => {
     expect(OpaqueIdV1.safeParse("").success).toBe(false);
     expect(OpaqueIdV1.safeParse("x".repeat(256)).success).toBe(false);
     expect(OpaqueIdV1.safeParse(1).success).toBe(false);
+  });
+
+  it("accepts generated wire IDs across minimum, interior, near-maximum, and maximum buckets", () => {
+    const acceptedIds = fc.tuple(
+      wireAsciiString(1, 1),
+      wireAsciiString(2, 63),
+      wireAsciiString(64, 191),
+      wireAsciiString(192, 254),
+      wireAsciiString(255, 255),
+    );
+    fc.assert(
+      fc.property(acceptedIds, (candidates) => {
+        for (const candidate of candidates) {
+          expect(OpaqueIdV1.parse(candidate)).toBe(candidate);
+        }
+      }),
+      PROPERTY_CASES.opaqueIdAccepted,
+    );
+  });
+
+  it("rejects generated wire IDs outside the length range", () => {
+    fc.assert(
+      fc.property(fc.tuple(fc.constant(""), wireAsciiString(256, 320)), (candidates) => {
+        for (const candidate of candidates) {
+          expect(OpaqueIdV1.safeParse(candidate).success).toBe(false);
+        }
+      }),
+      PROPERTY_CASES.opaqueIdRejected,
+    );
   });
 });
 
@@ -33,6 +86,35 @@ describe("CursorV1", () => {
     expect(CursorV1.safeParse("").success).toBe(false);
     expect(CursorV1.safeParse("c".repeat(4097)).success).toBe(false);
     expect(CursorV1.safeParse(1).success).toBe(false);
+  });
+
+  it("accepts generated opaque cursors across minimum, interior, near-maximum, and maximum buckets", () => {
+    const acceptedCursors = fc.tuple(
+      wireAsciiString(1, 1),
+      wireAsciiString(2, 1024),
+      wireAsciiString(1025, 3071),
+      wireAsciiString(3072, 4095),
+      wireAsciiString(4096, 4096),
+    );
+    fc.assert(
+      fc.property(acceptedCursors, (candidates) => {
+        for (const candidate of candidates) {
+          expect(CursorV1.parse(candidate)).toBe(candidate);
+        }
+      }),
+      PROPERTY_CASES.cursorAccepted,
+    );
+  });
+
+  it("rejects generated opaque cursors outside the length range", () => {
+    fc.assert(
+      fc.property(fc.tuple(fc.constant(""), wireAsciiString(4097, 4200)), (candidates) => {
+        for (const candidate of candidates) {
+          expect(CursorV1.safeParse(candidate).success).toBe(false);
+        }
+      }),
+      PROPERTY_CASES.cursorRejected,
+    );
   });
 });
 
@@ -56,6 +138,42 @@ describe("EventSeqV1", () => {
     ["more than 19 digits", "10000000000000000000"],
   ])("rejects %s syntax or range", (_label, candidate) => {
     expect(EventSeqV1.safeParse(candidate).success).toBe(false);
+  });
+
+  it("round-trips generated positive PostgreSQL BIGINT values as canonical decimal strings", () => {
+    const validEventSeq = fc.tuple(
+      fc.constant(1n),
+      fc.bigInt({ min: 2n, max: MAX_PG_BIGINT - 1n }),
+      fc.constant(MAX_PG_BIGINT),
+    );
+    fc.assert(
+      fc.property(validEventSeq, (candidates) => {
+        for (const candidate of candidates) {
+          const serialized = candidate.toString(10);
+          expect(EventSeqV1.parse(serialized)).toBe(serialized);
+        }
+      }),
+      PROPERTY_CASES.eventSeqAccepted,
+    );
+  });
+
+  it("rejects generated nonpositive, overflow, and noncanonical decimal strings", () => {
+    const invalidEventSeq = fc.tuple(
+      fc.bigInt({ min: -MAX_PG_BIGINT, max: 0n }).map((value) => value.toString(10)),
+      fc
+        .bigInt({ min: MAX_PG_BIGINT + 1n, max: MAX_PG_BIGINT + 1_000_000n })
+        .map((value) => value.toString(10)),
+      fc.bigInt({ min: 1n, max: MAX_PG_BIGINT }).map((value) => `0${value.toString(10)}`),
+      fc.bigInt({ min: 1n, max: MAX_PG_BIGINT }).map((value) => `+${value.toString(10)}`),
+    );
+    fc.assert(
+      fc.property(invalidEventSeq, (candidates) => {
+        for (const candidate of candidates) {
+          expect(EventSeqV1.safeParse(candidate).success).toBe(false);
+        }
+      }),
+      PROPERTY_CASES.eventSeqRejected,
+    );
   });
 });
 

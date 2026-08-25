@@ -11,7 +11,7 @@
 
 - Core conversion supplies an empty private metadata registry (`packages/contracts/src/artifacts.ts:560-580`, especially line 570), so ambient `z.globalRegistry` metadata is not consumed.
 - Full conversion prewalks the schema graph, copies only the explicit annotation allowlist into a private registry, validates root/nested IDs, and rejects symbol, structural, and other unapproved keys with paths (`artifacts.ts:319-328,379-517`); all three conversions use that registry (`artifacts.ts:805-836,870-885`).
-- The completed document rejects non-local/dangling refs and `$id`/anchor/dynamic structural keywords (`artifacts.ts:921-1006`). Tests cover unchanged ambient poison, allowed annotations, root/child structural keys, safe/reserved/duplicate IDs, and ref resolution (`packages/contracts/test/artifacts.spec.ts:405-431,577-688`).
+- The completed document rejects non-local/dangling refs and `$id`/anchor/dynamic structural keywords (`artifacts.ts:921-1006`). Tests cover unchanged ambient poison, allowed annotations, structural-field handling at root and child levels, permitted and forbidden ID classes, duplicate IDs, and ref resolution (`packages/contracts/test/artifacts.spec.ts:405-431,577-688`).
 
 ### H2 — OPEN: hostile fixed-property `__proto__` is still corrupted
 
