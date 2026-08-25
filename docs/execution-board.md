@@ -29,9 +29,10 @@
 | AW-006E | Source and provenance policy | researcher,devops | AW-006 | `docs/security/source-and-provenance-policy.md` | DONE |
 | AW-006F | Tiered UX gate registry | ux-writer,tester | AW-006 | `docs/product/chat-ux-gate-registry.md` | DONE |
 | AW-007 | pnpm monorepo·API/Web/DB scaffold | coder | AW-001, AW-004, AW-005, AW-006A..F, AW-006 re-review approval | 빌드·lint·test 가능한 코드 | DONE |
-| AW-008 | contracts·DB foundation 구현 | coder | AW-007 | Zod contracts, Drizzle schema, migrations, tests | RUNNING |
-| AW-009 | tenant/workspace/channel vertical slice | coder | AW-008 | API+Web E2E | TODO |
-| AW-010 | durable message create/history vertical slice | coder | AW-008, AW-009 | idempotency+seq+outbox tests | TODO |
+| AW-008 | contracts·DB foundation 구현 | coder | AW-007 | Zod contracts, Drizzle schema, migrations, tests | DONE |
+| AW-010A | channel stream foundation 추출 | coder | AW-008 | channel-local sequence state + canonical channel event journal | RUNNING |
+| AW-009 | tenant/workspace/channel authenticated-shell preview | coder | AW-008, AW-010A | tenant-bound API+Web E2E | PLANNING (code blocked by AW-010A) |
+| AW-010 | durable message create/history vertical slice | coder | AW-009, AW-010A | idempotency+message+outbox tests | TODO |
 | AW-011 | WebSocket fan-out/reconnect/resume | coder | AW-010 | gateway restart test | TODO |
 | AW-012 | Phase-1 integration and quality gate | reviewer,tester | AW-009..011 | verified gate report | TODO |
 
