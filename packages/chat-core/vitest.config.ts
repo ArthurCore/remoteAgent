@@ -8,6 +8,6 @@ export default defineConfig({
     passWithNoTests: false,
     clearMocks: true,
     restoreMocks: true,
-    include: ["test/channel-event-journal.spec.ts"],
+    include: ["test/channel-event-journal.spec.ts", "test/public-api.spec.ts"],
   },
 });

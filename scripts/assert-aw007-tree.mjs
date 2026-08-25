@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { lstat, readFile, readdir } from "node:fs/promises";
 import { dirname, join, relative, resolve, sep } from "node:path";
 
@@ -58,6 +59,8 @@ const implementationFiles = [
   "packages/chat-core/src/index.ts",
   "packages/chat-core/src/modules/messaging/channel-event-journal.ts",
   "packages/chat-core/test/channel-event-journal.spec.ts",
+  "packages/chat-core/test/fixtures/forbidden-db-import.ts",
+  "packages/chat-core/test/public-api.spec.ts",
   "packages/chat-core/tsconfig.json",
   "packages/chat-core/vitest.config.ts",
   "packages/config/package.json",
@@ -159,7 +162,7 @@ const canonicalChatCoreScripts = {
   lint: "eslint src test vitest.config.ts",
   typecheck: "tsc -p tsconfig.json --noEmit && pnpm run typecheck:test",
   "typecheck:test":
-    "tsc --noEmit --strict --noUncheckedIndexedAccess --exactOptionalPropertyTypes --useUnknownInCatchVariables --module NodeNext --moduleResolution NodeNext --target ES2023 --lib ES2023,DOM,DOM.Iterable --esModuleInterop --forceConsistentCasingInFileNames --isolatedModules --skipLibCheck test/channel-event-journal.spec.ts",
+    "tsc --noEmit --strict --noUncheckedIndexedAccess --exactOptionalPropertyTypes --useUnknownInCatchVariables --module NodeNext --moduleResolution NodeNext --target ES2023 --lib ES2023,DOM,DOM.Iterable --esModuleInterop --forceConsistentCasingInFileNames --isolatedModules --skipLibCheck test/channel-event-journal.spec.ts test/public-api.spec.ts",
   "test:unit": "vitest run --config vitest.config.ts",
 };
 
@@ -351,10 +354,35 @@ export default defineConfig({
     passWithNoTests: false,
     clearMocks: true,
     restoreMocks: true,
-    include: ["test/channel-event-journal.spec.ts"],
+    include: ["test/channel-event-journal.spec.ts", "test/public-api.spec.ts"],
   },
 });
 `;
+
+const canonicalChatCoreRootSource = `export type {
+  TrustedChannelActor,
+  ChannelEventIntent,
+  AppendChannelEventInput,
+  AppendChannelEventResult,
+  ChannelEventTransaction,
+} from "./modules/messaging/channel-event-journal.js";
+`;
+
+const exactAw010aS2FileHashes = new Map([
+  [".dependency-cruiser.cjs", "fc2091620163f8b2cc5faec586ae7aadd02a79cb715ebff64bd0debc6ae08229"],
+  [
+    "apps/web/test/fixtures/forbidden-db-import.ts",
+    "dd5fba1209189133176c24071fe2dee2c713189b61a5386d37a7ca399c7211f3",
+  ],
+  [
+    "packages/chat-core/test/fixtures/forbidden-db-import.ts",
+    "7a83ccc5f095fe2eabc29470c00146826f87027968c6bc22e5a85cfcebdf69ce",
+  ],
+  [
+    "scripts/assert-boundary-fixture.mjs",
+    "ba22342d0133de87523d8f0b2d818534d51206dbe0a52e17c373168efd80ab8f",
+  ],
+]);
 
 const canonicalWorkflow = `name: CI
 
@@ -605,6 +633,11 @@ assertExactObject("Chat-core public exports", chatCorePackage.exports, {
   ".": { types: "./src/index.ts", import: "./dist/index.js" },
 });
 
+const chatCoreRootSource = await readFile(resolve(root, "packages/chat-core/src/index.ts"), "utf8");
+if (chatCoreRootSource !== canonicalChatCoreRootSource) {
+  throw new Error("Chat-core root source does not match the AW-010A S2 exact type export oracle");
+}
+
 const contractsPackage = await readJson("packages/contracts/package.json");
 assertExactObject(
   "Contracts package scripts",
@@ -626,7 +659,15 @@ const chatCoreVitestConfig = await readFile(
   "utf8",
 );
 if (chatCoreVitestConfig !== canonicalChatCoreVitestConfig) {
-  throw new Error("Chat-core Vitest config does not match the AW-010A S1 exact oracle");
+  throw new Error("Chat-core Vitest config does not match the AW-010A S2 exact oracle");
+}
+
+for (const [path, expectedHash] of exactAw010aS2FileHashes) {
+  const source = await readFile(resolve(root, path));
+  const actualHash = createHash("sha256").update(source).digest("hex");
+  if (actualHash !== expectedHash) {
+    throw new Error(`${path} does not match the AW-010A S2 byte-exact oracle`);
+  }
 }
 
 const workspacePolicy = await readFile(resolve(root, "pnpm-workspace.yaml"), "utf8");
