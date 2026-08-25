@@ -77,7 +77,10 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO :"runtime
 REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public FROM :"runtime_role";
 GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA public TO :"runtime_role";
 
-ALTER DEFAULT PRIVILEGES FOR ROLE :"migrator_role" IN SCHEMA public
+-- Routine EXECUTE is granted to PUBLIC by PostgreSQL's global default. A
+-- per-schema REVOKE cannot override that global default, so revoke it globally
+-- for every future routine created by the migrator.
+ALTER DEFAULT PRIVILEGES FOR ROLE :"migrator_role"
   REVOKE EXECUTE ON ROUTINES FROM PUBLIC;
 ALTER DEFAULT PRIVILEGES FOR ROLE :"migrator_role" IN SCHEMA public
   REVOKE ALL PRIVILEGES ON TABLES FROM :"runtime_role";

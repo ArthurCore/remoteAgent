@@ -391,6 +391,10 @@ describe("local PostgreSQL role bootstrap", () => {
       'REVOKE ALL PRIVILEGES ON ALL ROUTINES IN SCHEMA public FROM :"runtime_role";',
     );
     expect(script).toContain(
+      'ALTER DEFAULT PRIVILEGES FOR ROLE :"migrator_role"\n' +
+        "  REVOKE EXECUTE ON ROUTINES FROM PUBLIC;",
+    );
+    expect(script).not.toContain(
       'ALTER DEFAULT PRIVILEGES FOR ROLE :"migrator_role" IN SCHEMA public\n' +
         "  REVOKE EXECUTE ON ROUTINES FROM PUBLIC;",
     );
