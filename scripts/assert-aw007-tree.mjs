@@ -98,6 +98,7 @@ const implementationFiles = [
   "packages/db/src/schema/enums.ts",
   "packages/db/src/schema/foundation.ts",
   "packages/db/src/schema/index.ts",
+  "packages/db/test/channel-stream-migration.integration.spec.ts",
   "packages/db/test/channel-stream-migration.spec.ts",
   "packages/db/test/channel-stream-schema.spec.ts",
   "packages/db/test/constraints.integration.spec.ts",
@@ -365,6 +366,41 @@ export default defineConfig({
 });
 `;
 
+const canonicalDbVitestConfig = `import { vitestUnitDefaults } from "@agent-workspace/test-config/vitest";
+import { defineConfig } from "vitest/config";
+
+export default defineConfig({
+  ...vitestUnitDefaults,
+  test: {
+    ...vitestUnitDefaults.test,
+    projects: [
+      {
+        extends: true,
+        test: {
+          name: "unit",
+          include: ["test/**/*.spec.ts"],
+          exclude: ["test/**/*.integration.spec.ts"],
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: "integration",
+          passWithNoTests: false,
+          include: [
+            "test/channel-stream-migration.integration.spec.ts",
+            "test/constraints.integration.spec.ts",
+            "test/migration.integration.spec.ts",
+            "test/roles.integration.spec.ts",
+          ],
+          fileParallelism: false,
+        },
+      },
+    ],
+  },
+});
+`;
+
 const canonicalChatCoreRootSource = `export type {
   TrustedChannelActor,
   ChannelEventIntent,
@@ -434,6 +470,132 @@ const exactAw010aS4FileHashes = new Map([
   [
     "packages/db/test/migration.spec.ts",
     "268564c471a114ec3b996fa9a5c4794bfce6d85733ff70e5cc5342517f247144",
+  ],
+]);
+
+const exactAw010aS5FileHashes = new Map([
+  [
+    "packages/db/test/channel-stream-migration.integration.spec.ts",
+    "5f88c2d92fdd3e9c0596e49ca98b7e087e5b812971249b2a1c3178c7a9956f83",
+  ],
+  [
+    "packages/db/vitest.config.ts",
+    "c0cdb380651169fb46da0d8d7bcca3a6ff492151276d1c0e91e6fb11d280ea13",
+  ],
+  [
+    "packages/db/test/migration.integration.spec.ts",
+    "3b4579c9ad02af7e3ebd6174c7d56216f229fd07e9cec9bf6124d08e6c5a118b",
+  ],
+  [
+    "packages/db/test/constraints.integration.spec.ts",
+    "9fd3cf86dd65d89e8f0d6467b888a1d79fc12d75b973ed53c039858979b0ac1c",
+  ],
+  [
+    "packages/db/test/roles.integration.spec.ts",
+    "e0952db6cda6e8f8bdd8ada597594f530b89966d19373c911d5193f2bc5d8009",
+  ],
+  [
+    "packages/db/test/support/postgres.ts",
+    "d9c4fdf3df45faaf0d1466463e6855a9482330a16a37896ada2ee4da19005452",
+  ],
+]);
+
+const exactAw010aS5TestNames = [
+  "AW010A-S5 registers exactly the four integration files in frozen order",
+  "AW010A-S5 fails atomically when a 0000-only database contains pre-stream membership",
+  "AW010A-S5 backfills exactly one zero sequence state for every existing channel",
+  "AW010A-S5 observes channel DML blocking the migration ACCESS EXCLUSIVE lock until release",
+  "AW010A-S5 observes membership DML blocking the migration ACCESS EXCLUSIVE lock until release",
+  "AW010A-S5 initializes zero sequence state for a channel inserted after migration",
+  "AW010A-S5 accepts a joined epoch backed by channel.member_joined",
+  "AW010A-S5 accepts channel.member_left as an exited epoch event",
+  "AW010A-S5 accepts channel.member_revoked as an exited epoch event",
+  "AW010A-S5 accepts a nullable exited_event_seq for an active epoch",
+  "AW010A-S5 rejects all six non-join event types for joined_event_seq",
+  "AW010A-S5 rejects all five non-exit event types for exited_event_seq",
+  "AW010A-S5 rejects a missing joined event through the immediate foreign key",
+  "AW010A-S5 rejects an event reference from the wrong tenant",
+  "AW010A-S5 rejects an event reference from another channel in the same tenant",
+  "AW010A-S5 commits the supported event-first then membership transaction order",
+  "AW010A-S5 rejects epoch-first ordering through the immediate event foreign key",
+  "AW010A-S5 rolls back event epoch and sequence together on commit-time wrong-type failure",
+  "AW010A-S5 leaves the exact two-row ledger on a no-op rerun",
+  "AW010A-S5 serializes concurrent migrators with one advisory holder and one waiter",
+  "AW010A-S5 preserves pre-AW010A application rollback over additive stream objects",
+  "AW010A-S5 fails closed on isolated local migration hash drift",
+  "AW010A-S5 freezes the exact live function trigger and FK deferrability catalog",
+  "AW010A-S5 rejects synthetic positive markers and keeps typed errors free of fixture row data",
+];
+
+const exactExistingIntegrationTestCounts = new Map([
+  ["packages/db/test/constraints.integration.spec.ts", 10],
+  ["packages/db/test/migration.integration.spec.ts", 5],
+  ["packages/db/test/roles.integration.spec.ts", 10],
+]);
+
+const exactAw010aS5SemanticTokensByFile = new Map([
+  [
+    "packages/db/test/support/postgres.ts",
+    [
+      'import { CHANNEL_STREAM_MIGRATION_HASH } from "../../src/migration-integrity.js";',
+      "migrationHash: CHANNEL_STREAM_MIGRATION_HASH,",
+    ],
+  ],
+  [
+    "packages/db/test/roles.integration.spec.ts",
+    [
+      "UPDATE public.channel_event_sequences\n          SET last_event_seq = $3",
+      "await expectRuntimeAppendOnlyRejected(\n      `UPDATE public.channel_events",
+      "await expectRuntimeAppendOnlyRejected(\n      `DELETE FROM public.channel_events",
+    ],
+  ],
+  [
+    "packages/db/test/constraints.integration.spec.ts",
+    [
+      `const PUBLIC_TABLES = [
+  "channel_event_sequences",
+  "channel_events",
+  "channel_membership_epochs",
+  "channels",
+  "principals",
+  "tenants",
+  "workspace_memberships",
+  "workspaces",
+] as const;`,
+      "interface ChannelEventFixture {",
+      "async function seedChannelEvents(",
+      "INSERT INTO channel_events",
+    ],
+  ],
+  [
+    "packages/db/test/migration.integration.spec.ts",
+    [
+      "const CHANNEL_STREAM_CREATED_AT = 1_787_695_124_181;",
+      `{
+          id: 2,
+          created_at: String(CHANNEL_STREAM_CREATED_AT),
+          hash: CHANNEL_STREAM_MIGRATION_HASH,
+        },`,
+    ],
+  ],
+  [
+    "packages/db/test/channel-stream-migration.integration.spec.ts",
+    [
+      "const sharedCrossTenantChannelId = FIXTURE.channelA;",
+      "await seedChannel(client, FIXTURE.tenantB, FIXTURE.workspaceB, sharedCrossTenantChannelId);",
+      `expect(crossTenantRows.rows.map(({ channel_id: channelId }) => channelId)).toEqual([
+      sharedCrossTenantChannelId,
+      sharedCrossTenantChannelId,
+    ]);`,
+      "const preAw010aApplicationSource = writePreAw010aApplicationFixture.toString();",
+      String.raw`/\b(?:channel_events|channel_event_sequences|channel_membership_epochs)\b/u,`,
+      `await withCommittedTransaction((client) =>
+      writePreAw010aApplicationFixture(client, applicationFixture),
+    );`,
+      `state_count: 1,
+        last_event_seq: "0",
+        events: 0,`,
+    ],
   ],
 ]);
 
@@ -588,6 +750,26 @@ function assertExactOrderedList(label, actual, expected) {
   if (actual.length !== expected.length || actual.some((item, index) => item !== expected[index])) {
     throw new Error(
       `${label} does not match the AW-008 ordered manifest; actual: ${actual.join(", ") || "none"}; expected: ${expected.join(", ") || "none"}`,
+    );
+  }
+}
+
+function literalItTestNames(path, source) {
+  const allItCalls = source.match(/\bit\s*\(/gu) ?? [];
+  const literalNames = [...source.matchAll(/\bit\s*\(\s*("(?:[^"\\]|\\.)*")/gu)].map((match) =>
+    JSON.parse(match[1]),
+  );
+  if (literalNames.length !== allItCalls.length) {
+    throw new Error(`${path} must use only direct it calls with literal double-quoted names`);
+  }
+  return literalNames;
+}
+
+function assertSourceIncludesAll(label, source, expectedTokens) {
+  const missingTokens = expectedTokens.filter((token) => !source.includes(token));
+  if (missingTokens.length > 0) {
+    throw new Error(
+      `${label} is missing exact AW-010A S5 semantic evidence: ${missingTokens.join(", ")}`,
     );
   }
 }
@@ -808,6 +990,62 @@ for (const [path, expectedHash] of exactAw010aS4FileHashes) {
   if (actualHash !== expectedHash) {
     throw new Error(`${path} does not match the AW-010A S4 byte-exact oracle`);
   }
+}
+
+const aw010aS5SourceByPath = new Map();
+for (const [path, expectedHash] of exactAw010aS5FileHashes) {
+  const source = await readFile(resolve(root, path));
+  const actualHash = createHash("sha256").update(source).digest("hex");
+  if (actualHash !== expectedHash) {
+    throw new Error(`${path} does not match the AW-010A S5 byte-exact oracle`);
+  }
+  aw010aS5SourceByPath.set(path, source.toString("utf8"));
+}
+
+const dbVitestConfig = aw010aS5SourceByPath.get("packages/db/vitest.config.ts");
+if (dbVitestConfig !== canonicalDbVitestConfig) {
+  throw new Error(
+    "DB Vitest config does not preserve the exact independent AW-010A S5 unit and integration semantics",
+  );
+}
+
+for (const [path, expectedTokens] of exactAw010aS5SemanticTokensByFile) {
+  const source = aw010aS5SourceByPath.get(path);
+  if (source === undefined) throw new Error(`AW-010A S5 semantic source is missing: ${path}`);
+  assertSourceIncludesAll(path, source, expectedTokens);
+}
+
+const aw010aS5TestPath = "packages/db/test/channel-stream-migration.integration.spec.ts";
+const aw010aS5TestSource = aw010aS5SourceByPath.get(aw010aS5TestPath);
+if (aw010aS5TestSource === undefined) {
+  throw new Error(`AW-010A S5 test source is missing: ${aw010aS5TestPath}`);
+}
+const aw010aS5TestNames = literalItTestNames(aw010aS5TestPath, aw010aS5TestSource);
+if (
+  aw010aS5TestNames.length !== 24 ||
+  new Set(aw010aS5TestNames).size !== 24 ||
+  aw010aS5TestNames.some((name) => !name.startsWith("AW010A-S5 "))
+) {
+  throw new Error("AW-010A S5 integration inventory must contain 24 unique prefixed it tests");
+}
+assertExactOrderedList(
+  "AW-010A S5 integration test names",
+  aw010aS5TestNames,
+  exactAw010aS5TestNames,
+);
+
+let cumulativeIntegrationTestCount = aw010aS5TestNames.length;
+for (const [path, expectedCount] of exactExistingIntegrationTestCounts) {
+  const source = aw010aS5SourceByPath.get(path);
+  if (source === undefined) throw new Error(`AW-010A S5 integration source is missing: ${path}`);
+  const testNames = literalItTestNames(path, source);
+  if (testNames.length !== expectedCount || new Set(testNames).size !== expectedCount) {
+    throw new Error(`${path} must preserve exactly ${expectedCount} unique integration tests`);
+  }
+  cumulativeIntegrationTestCount += testNames.length;
+}
+if (cumulativeIntegrationTestCount !== 49) {
+  throw new Error("AW-010A S5 cumulative integration inventory must contain exactly 49 tests");
 }
 
 const workspacePolicy = await readFile(resolve(root, "pnpm-workspace.yaml"), "utf8");

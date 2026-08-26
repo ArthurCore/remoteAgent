@@ -19,7 +19,9 @@ import {
   type PostgresTestRole,
 } from "./support/postgres.js";
 
-const FOUNDATION_TABLES = [
+const PUBLIC_TABLES = [
+  "channel_event_sequences",
+  "channel_events",
   "channel_membership_epochs",
   "channels",
   "principals",
@@ -27,14 +29,23 @@ const FOUNDATION_TABLES = [
   "workspace_memberships",
   "workspaces",
 ] as const;
-const DELETE_ORDER = [
+const VERSIONED_TABLES = [
+  "channels",
+  "principals",
+  "tenants",
+  "workspace_memberships",
+  "workspaces",
   "channel_membership_epochs",
+] as const;
+const DELETE_PROBE_ORDER = [
+  "channel_event_sequences",
   "channels",
   "workspace_memberships",
   "principals",
   "workspaces",
   "tenants",
 ] as const;
+const RUNTIME_TABLE_PRIVILEGES = ["DELETE", "INSERT", "SELECT", "UPDATE"] as const;
 const HARNESS_LABEL = "com.agent-workspace.aw008d.harness";
 const RUN_ID_LABEL = "com.agent-workspace.aw008d.run-id";
 const PROCESS_ID_LABEL = "com.agent-workspace.aw008d.process-id";
@@ -134,6 +145,11 @@ function errorCode(error: unknown): string | undefined {
   return typeof error.code === "string" ? error.code : undefined;
 }
 
+function errorMessage(error: unknown): string | undefined {
+  if (typeof error !== "object" || error === null || !("message" in error)) return undefined;
+  return typeof error.message === "string" ? error.message : undefined;
+}
+
 function errorStatusCode(error: unknown): number | undefined {
   if (typeof error !== "object" || error === null || !("statusCode" in error)) return undefined;
   return typeof error.statusCode === "number" ? error.statusCode : undefined;
@@ -226,6 +242,35 @@ async function expectRuntimePermissionDenied(
 
   expect(thrown).toBeDefined();
   expect(errorCode(thrown)).toBe("42501");
+}
+
+async function expectRuntimeAppendOnlyRejected(
+  statement: string,
+  parameters: readonly unknown[] = [],
+): Promise<void> {
+  const client = await activeHarness().connect("runtime");
+  let thrown: unknown;
+  let transactionStarted = false;
+  try {
+    await client.query("BEGIN");
+    transactionStarted = true;
+    try {
+      await client.query(statement, [...parameters]);
+    } catch (error) {
+      thrown = error;
+      capturedErrors.push(error);
+    }
+  } finally {
+    try {
+      if (transactionStarted) await client.query("ROLLBACK");
+    } finally {
+      client.release();
+    }
+  }
+
+  expect(thrown).toBeDefined();
+  expect(errorCode(thrown)).toBe("55000");
+  expect(errorMessage(thrown)).toBe("channel events are append-only");
 }
 
 function connectionCredentialValues(testHarness: PostgresTestHarness): string[] {
@@ -785,12 +830,10 @@ describe.sequential("AW-008D migrator/runtime least privilege", () => {
       `SELECT tablename AS "tableName", tableowner AS "tableOwner"
          FROM pg_catalog.pg_tables
         WHERE schemaname = 'public'
-        ORDER BY tablename`,
+        ORDER BY tablename COLLATE "C"`,
     );
     expect(tableOwners.rows).toEqual(
-      FOUNDATION_TABLES.map((tableName) => ({ tableName, tableOwner: migratorRole })).sort(
-        (left, right) => left.tableName.localeCompare(right.tableName),
-      ),
+      PUBLIC_TABLES.map((tableName) => ({ tableName, tableOwner: migratorRole })),
     );
 
     await testHarness.query(
@@ -831,41 +874,98 @@ describe.sequential("AW-008D migrator/runtime least privilege", () => {
        IMMUTABLE
        AS 'SELECT 1'`,
     );
-    const routineAcl = await testHarness.query<{ publicExecute: boolean }>(
+    const routineAcls = await testHarness.query<{
+      publicExecute: boolean;
+      routineName: string;
+    }>(
       "owner",
-      `SELECT EXISTS (
-         SELECT 1
-           FROM pg_catalog.pg_proc AS procedure
-           CROSS JOIN LATERAL pg_catalog.aclexplode(
-             COALESCE(
-               procedure.proacl,
-               pg_catalog.acldefault('f', procedure.proowner)
-             )
-           ) AS privilege
-          WHERE procedure.oid = 'public.aw008d_routine_probe()'::regprocedure
-            AND privilege.grantee = 0
-            AND privilege.privilege_type = 'EXECUTE'
-       ) AS "publicExecute"`,
+      `SELECT procedure.proname AS "routineName",
+              EXISTS (
+                SELECT 1
+                  FROM pg_catalog.aclexplode(
+                    COALESCE(
+                      procedure.proacl,
+                      pg_catalog.acldefault('f', procedure.proowner)
+                    )
+                  ) AS privilege
+                 WHERE privilege.grantee = 0
+                   AND privilege.privilege_type = 'EXECUTE'
+              ) AS "publicExecute"
+         FROM pg_catalog.pg_proc AS procedure
+         JOIN pg_catalog.pg_namespace AS namespace ON namespace.oid = procedure.pronamespace
+        WHERE namespace.nspname = 'public'
+          AND procedure.proname IN (
+            'aw008d_routine_probe',
+            'enforce_channel_membership_event_types',
+            'initialize_channel_event_sequence',
+            'reject_channel_event_mutation'
+          )
+        ORDER BY procedure.proname COLLATE "C"`,
     );
-    expect(routineAcl.rows).toEqual([{ publicExecute: false }]);
+    expect(routineAcls.rows).toEqual(
+      [
+        "aw008d_routine_probe",
+        "enforce_channel_membership_event_types",
+        "initialize_channel_event_sequence",
+        "reject_channel_event_mutation",
+      ].map((routineName) => ({ routineName, publicExecute: false })),
+    );
 
-    const runtimeRoutinePrivilege = await testHarness.query<{ canExecute: boolean }>(
+    const runtimeRoutinePrivileges = await testHarness.query<{
+      canExecute: boolean;
+      routineName: string;
+    }>(
       "runtime",
-      `SELECT pg_catalog.has_function_privilege(
-         current_user,
-         'public.aw008d_routine_probe()'::regprocedure,
-         'EXECUTE'
-       ) AS "canExecute"`,
+      `SELECT procedure.proname AS "routineName",
+              pg_catalog.has_function_privilege(
+                current_user,
+                procedure.oid,
+                'EXECUTE'
+              ) AS "canExecute"
+         FROM pg_catalog.pg_proc AS procedure
+         JOIN pg_catalog.pg_namespace AS namespace ON namespace.oid = procedure.pronamespace
+        WHERE namespace.nspname = 'public'
+          AND procedure.proname IN (
+            'aw008d_routine_probe',
+            'enforce_channel_membership_event_types',
+            'initialize_channel_event_sequence',
+            'reject_channel_event_mutation'
+          )
+        ORDER BY procedure.proname COLLATE "C"`,
     );
-    expect(runtimeRoutinePrivilege.rows).toEqual([{ canExecute: false }]);
+    expect(runtimeRoutinePrivileges.rows).toEqual(
+      [
+        "aw008d_routine_probe",
+        "enforce_channel_membership_event_types",
+        "initialize_channel_event_sequence",
+        "reject_channel_event_mutation",
+      ].map((routineName) => ({ routineName, canExecute: false })),
+    );
     await expectRuntimePermissionDenied("SELECT public.aw008d_routine_probe()");
     await testHarness.query("migrator", "DROP FUNCTION public.aw008d_routine_probe()");
   });
 
-  it("allows runtime SELECT, INSERT, UPDATE, and DELETE on every foundation table", async () => {
+  it("allows intended runtime DML on every public table subject to append-only enforcement", async () => {
     const testHarness = activeHarness();
+    const tableGrants = await testHarness.query<{ privilege: string; tableName: string }>(
+      "runtime",
+      `SELECT table_name AS "tableName", privilege_type AS privilege
+         FROM information_schema.role_table_grants
+        WHERE table_schema = 'public'
+          AND grantee = current_user
+        ORDER BY table_name COLLATE "C", privilege_type COLLATE "C"`,
+    );
+    expect(tableGrants.rows).toEqual(
+      PUBLIC_TABLES.flatMap((tableName) =>
+        RUNTIME_TABLE_PRIVILEGES.map((privilege) => ({ tableName, privilege })),
+      ),
+    );
+
     const tenantId = "aw008d-runtime-tenant";
-    const inserts = [
+    const workspaceId = "workspace";
+    const principalId = "principal";
+    const channelId = "channel";
+    const foundationInserts = [
       {
         tableName: "tenants",
         statement: "INSERT INTO public.tenants (tenant_id) VALUES ($1)",
@@ -874,47 +974,124 @@ describe.sequential("AW-008D migrator/runtime least privilege", () => {
       {
         tableName: "workspaces",
         statement: "INSERT INTO public.workspaces (tenant_id, workspace_id) VALUES ($1, $2)",
-        parameters: [tenantId, "workspace"],
+        parameters: [tenantId, workspaceId],
       },
       {
         tableName: "principals",
         statement:
           "INSERT INTO public.principals (tenant_id, principal_id, principal_kind) VALUES ($1, $2, $3)",
-        parameters: [tenantId, "principal", "human"],
+        parameters: [tenantId, principalId, "human"],
       },
       {
         tableName: "workspace_memberships",
         statement:
           "INSERT INTO public.workspace_memberships (tenant_id, workspace_id, principal_id, role) VALUES ($1, $2, $3, $4)",
-        parameters: [tenantId, "workspace", "principal", "member"],
+        parameters: [tenantId, workspaceId, principalId, "member"],
       },
       {
         tableName: "channels",
         statement:
           "INSERT INTO public.channels (tenant_id, workspace_id, channel_id, kind) VALUES ($1, $2, $3, $4)",
-        parameters: [tenantId, "workspace", "channel", "public"],
-      },
-      {
-        tableName: "channel_membership_epochs",
-        statement:
-          "INSERT INTO public.channel_membership_epochs (tenant_id, channel_id, principal_id, membership_epoch, history_mode, joined_event_seq) VALUES ($1, $2, $3, $4, $5, $6)",
-        parameters: [tenantId, "channel", "principal", "epoch", "full", "1"],
+        parameters: [tenantId, workspaceId, channelId, "public"],
       },
     ] as const;
 
-    for (const insert of inserts) {
+    for (const insert of foundationInserts) {
       const result = await testHarness.query("runtime", insert.statement, [...insert.parameters]);
       expect(result.rowCount, insert.tableName).toBe(1);
     }
 
-    for (const tableName of FOUNDATION_TABLES) {
+    const initializedSequence = await testHarness.query<{ lastEventSeq: string }>(
+      "runtime",
+      `SELECT last_event_seq::text AS "lastEventSeq"
+         FROM public.channel_event_sequences
+        WHERE tenant_id = $1
+          AND channel_id = $2`,
+      [tenantId, channelId],
+    );
+    expect(initializedSequence.rows).toEqual([{ lastEventSeq: "0" }]);
+
+    const updatedSequence = await testHarness.query<{ lastEventSeq: string }>(
+      "runtime",
+      `UPDATE public.channel_event_sequences
+          SET last_event_seq = $3
+        WHERE tenant_id = $1
+          AND channel_id = $2
+      RETURNING last_event_seq::text AS "lastEventSeq"`,
+      [tenantId, channelId, "2"],
+    );
+    expect(updatedSequence.rows).toEqual([{ lastEventSeq: "2" }]);
+
+    const channelEvents = [
+      { eventId: "aw008d-runtime-joined", eventSeq: "1", eventType: "channel.member_joined" },
+      { eventId: "aw008d-runtime-left", eventSeq: "2", eventType: "channel.member_left" },
+    ] as const;
+    for (const event of channelEvents) {
+      const inserted = await testHarness.query(
+        "runtime",
+        `INSERT INTO public.channel_events
+           (tenant_id, channel_id, event_seq, event_id, schema_version, event_type,
+            actor_principal_id, actor_kind, occurred_at, payload)
+         VALUES ($1, $2, $3, $4, 1, $5, $6, 'human', $7, $8::jsonb)`,
+        [
+          tenantId,
+          channelId,
+          event.eventSeq,
+          event.eventId,
+          event.eventType,
+          principalId,
+          "2026-08-26T00:00:00.000Z",
+          JSON.stringify({ source: "AW-008D runtime role integration" }),
+        ],
+      );
+      expect(inserted.rowCount, event.eventType).toBe(1);
+    }
+
+    const insertedMembership = await testHarness.query(
+      "runtime",
+      `INSERT INTO public.channel_membership_epochs
+         (tenant_id, channel_id, principal_id, membership_epoch, history_mode,
+          joined_event_seq, exited_event_seq)
+       VALUES ($1, $2, $3, $4, 'full', $5, $6)`,
+      [tenantId, channelId, principalId, "epoch", "1", "2"],
+    );
+    expect(insertedMembership.rowCount).toBe(1);
+    const typedMembership = await testHarness.query<{
+      exitedEventSeq: string;
+      joinedEventSeq: string;
+    }>(
+      "runtime",
+      `SELECT joined_event_seq::text AS "joinedEventSeq",
+              exited_event_seq::text AS "exitedEventSeq"
+         FROM public.channel_membership_epochs
+        WHERE tenant_id = $1
+          AND channel_id = $2
+          AND principal_id = $3
+          AND membership_epoch = $4`,
+      [tenantId, channelId, principalId, "epoch"],
+    );
+    expect(typedMembership.rows).toEqual([{ joinedEventSeq: "1", exitedEventSeq: "2" }]);
+
+    const expectedRowCounts: Readonly<Record<(typeof PUBLIC_TABLES)[number], string>> = {
+      channel_event_sequences: "1",
+      channel_events: "2",
+      channel_membership_epochs: "1",
+      channels: "1",
+      principals: "1",
+      tenants: "1",
+      workspace_memberships: "1",
+      workspaces: "1",
+    };
+    for (const tableName of PUBLIC_TABLES) {
       const selected = await testHarness.query<{ rowCount: string }>(
         "runtime",
         `SELECT count(*)::text AS "rowCount" FROM public.${tableName} WHERE tenant_id = $1`,
         [tenantId],
       );
-      expect(selected.rows, tableName).toEqual([{ rowCount: "1" }]);
+      expect(selected.rows, tableName).toEqual([{ rowCount: expectedRowCounts[tableName] }]);
+    }
 
+    for (const tableName of VERSIONED_TABLES) {
       const updated = await testHarness.query(
         "runtime",
         `UPDATE public.${tableName} SET version = version + 1 WHERE tenant_id = $1`,
@@ -923,22 +1100,96 @@ describe.sequential("AW-008D migrator/runtime least privilege", () => {
       expect(updated.rowCount, tableName).toBe(1);
     }
 
-    for (const tableName of DELETE_ORDER) {
+    await expectRuntimeAppendOnlyRejected(
+      `UPDATE public.channel_events
+          SET payload = $4::jsonb
+        WHERE tenant_id = $1
+          AND channel_id = $2
+          AND event_seq = $3`,
+      [tenantId, channelId, "1", JSON.stringify({ attemptedMutation: true })],
+    );
+    await expectRuntimeAppendOnlyRejected(
+      `DELETE FROM public.channel_events
+        WHERE tenant_id = $1
+          AND channel_id = $2
+          AND event_seq = $3`,
+      [tenantId, channelId, "1"],
+    );
+
+    const deletedMembership = await testHarness.query(
+      "runtime",
+      `DELETE FROM public.channel_membership_epochs
+        WHERE tenant_id = $1
+          AND channel_id = $2
+          AND principal_id = $3
+          AND membership_epoch = $4`,
+      [tenantId, channelId, principalId, "epoch"],
+    );
+    expect(deletedMembership.rowCount).toBe(1);
+
+    const deleteTenantId = "aw008d-runtime-delete-tenant";
+    const deleteWorkspaceId = "delete-workspace";
+    const deletePrincipalId = "delete-principal";
+    const deleteChannelId = "delete-channel";
+    const deleteProbeInserts = [
+      {
+        tableName: "tenants",
+        statement: "INSERT INTO public.tenants (tenant_id) VALUES ($1)",
+        parameters: [deleteTenantId],
+      },
+      {
+        tableName: "workspaces",
+        statement: "INSERT INTO public.workspaces (tenant_id, workspace_id) VALUES ($1, $2)",
+        parameters: [deleteTenantId, deleteWorkspaceId],
+      },
+      {
+        tableName: "principals",
+        statement:
+          "INSERT INTO public.principals (tenant_id, principal_id, principal_kind) VALUES ($1, $2, $3)",
+        parameters: [deleteTenantId, deletePrincipalId, "service"],
+      },
+      {
+        tableName: "workspace_memberships",
+        statement:
+          "INSERT INTO public.workspace_memberships (tenant_id, workspace_id, principal_id, role) VALUES ($1, $2, $3, $4)",
+        parameters: [deleteTenantId, deleteWorkspaceId, deletePrincipalId, "guest"],
+      },
+      {
+        tableName: "channels",
+        statement:
+          "INSERT INTO public.channels (tenant_id, workspace_id, channel_id, kind) VALUES ($1, $2, $3, $4)",
+        parameters: [deleteTenantId, deleteWorkspaceId, deleteChannelId, "private"],
+      },
+    ] as const;
+    for (const insert of deleteProbeInserts) {
+      const result = await testHarness.query("runtime", insert.statement, [...insert.parameters]);
+      expect(result.rowCount, `delete probe ${insert.tableName}`).toBe(1);
+    }
+    const deleteProbeState = await testHarness.query<{ lastEventSeq: string }>(
+      "runtime",
+      `SELECT last_event_seq::text AS "lastEventSeq"
+         FROM public.channel_event_sequences
+        WHERE tenant_id = $1
+          AND channel_id = $2`,
+      [deleteTenantId, deleteChannelId],
+    );
+    expect(deleteProbeState.rows).toEqual([{ lastEventSeq: "0" }]);
+
+    for (const tableName of DELETE_PROBE_ORDER) {
       const deleted = await testHarness.query(
         "runtime",
         `DELETE FROM public.${tableName} WHERE tenant_id = $1`,
-        [tenantId],
+        [deleteTenantId],
       );
-      expect(deleted.rowCount, tableName).toBe(1);
+      expect(deleted.rowCount, `delete probe ${tableName}`).toBe(1);
     }
-
-    for (const tableName of FOUNDATION_TABLES) {
+    for (const tableName of PUBLIC_TABLES) {
       const selected = await testHarness.query<{ rowCount: string }>(
         "runtime",
         `SELECT count(*)::text AS "rowCount" FROM public.${tableName} WHERE tenant_id = $1`,
-        [tenantId],
+        [deleteTenantId],
       );
-      expect(selected.rows, tableName).toEqual([{ rowCount: "0" }]);
+      expect(selected.rows, `deleted probe ${tableName}`).toEqual([{ rowCount: "0" }]);
     }
   });
 

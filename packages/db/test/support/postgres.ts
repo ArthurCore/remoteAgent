@@ -7,7 +7,7 @@ import { PostgreSqlContainer, type StartedPostgreSqlContainer } from "@testconta
 import { Pool, type PoolClient, type QueryResult, type QueryResultRow } from "pg";
 import { getContainerRuntimeClient, type ContainerRuntimeClient } from "testcontainers";
 
-import { FOUNDATION_MIGRATION_HASH } from "../../src/migration-integrity.js";
+import { CHANNEL_STREAM_MIGRATION_HASH } from "../../src/migration-integrity.js";
 
 export const POSTGRES_TEST_IMAGE =
   "postgres:17.11-bookworm@sha256:84560e3b9c6874893fc4e2854f5dc3e7c1a37bc9d1dfd7a8c641310ae22ba5ad";
@@ -693,7 +693,7 @@ export async function startPostgresTestHarness(
       containerName: inspection.Name,
       database: resources.database,
       schemas: ["public", "drizzle"] as const,
-      migrationHash: FOUNDATION_MIGRATION_HASH,
+      migrationHash: CHANNEL_STREAM_MIGRATION_HASH,
       testSeed: resources.runId,
       labels: resources.labels,
       connection: Object.freeze({
