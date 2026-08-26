@@ -208,7 +208,7 @@ pnpm --filter @agent-workspace/api exec vitest run --config vitest.config.ts --p
 
 Expected: exit 1 until the API integration project and real harness are wired.
 
-**Minimum green:** register the integration project and import `../../../packages/db/test/support/postgres.ts` from the API test only for this pre-public-support card; make only evidence-driven adapter corrections.
+**Minimum green:** register the integration project and import `../../../packages/db/test/support/postgres.ts` from the API test only for this pre-public-support card; make only evidence-driven adapter corrections. The exact ordered 20-test denominator and executable harness/transaction/teardown contract are frozen by `docs/reviews/aw-010a-s7-integration-contract-spec-xhigh.md`: one live harness, reset+migrate per test, real runtime clients, bounded begin-all concurrency barriers, rollback/release in `finally`, pre-stop evidence mode/no-overwrite/credential inspection, guaranteed single stop, post-stop exact-label container residue read-back, and deterministic evidence→stop→residue failure aggregation. No manifest, lockfile, DB support, or direct API `pg`/Testcontainers dependency change is permitted.
 
 **Green:** `pnpm --filter @agent-workspace/api exec vitest run --config vitest.config.ts --project integration --no-file-parallelism test/channel-event-journal.integration.spec.ts` → 20 passed; `pnpm --filter @agent-workspace/api test:unit && pnpm --filter @agent-workspace/api test:integration` → exit 0, no skipped/todo, evidence credential scan zero and Docker residue zero.
 
