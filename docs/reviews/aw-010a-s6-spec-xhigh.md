@@ -23,8 +23,8 @@ The one-time own-data snapshots preserve the frozen S6 behavior and close the ac
 - The six S6 card paths are the only implementation paths in scope. The checker’s five non-self byte oracles are current; the checker itself was independently hashed:
   - adapter: `092efa73c505ca965d0383dd944ce11e1bb819b0019eeb30b062dc0fdf76b769`
   - unit test: `d061bf7d24fa9547ef944e1a6042cb8d0049f0aac480d3b764cf84dbdcdfd792`
-  - API package: `147ef9b89bf811b87a81cedea929a78d107723c8e769d3703e42690fb012b636`
-  - API Vitest config: `8a1a5f3d17adccce60b04c2ae46f455a3fb10e24a263644c8eb0049da99c4037`
+  - `147ef9b89bf811b87a81cedea929a78d107723c8e769d3703e42690fb012b636` — API package artifact
+  - `8a1a5f3d17adccce60b04c2ae46f455a3fb10e24a263644c8eb0049da99c4037` — API Vitest config artifact
   - lockfile: `5bd040ec0beaf0533bd6289c48bb8a180890fe8240b3779398f3deeab6f6a226`
   - checker: `169aad474922c86e2d5f2ae2e7e1e43b4f49d794310f7efb8ce1e3b640e9d8d0`
 - API scripts/config remain exact: the unit project selects only health plus S6, and the S6 integration command still fails closed with `No projects matched`. The lockfile importer adds only the `@agent-workspace/chat-core` workspace link; no `pg`, `@types/pg`, lifecycle policy, or resolution change is present.
