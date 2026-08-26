@@ -46,6 +46,9 @@ importers:
 
   apps/api:
     dependencies:
+      "@agent-workspace/chat-core":
+        specifier: workspace:*
+        version: link:../../packages/chat-core
       "@agent-workspace/config":
         specifier: workspace:*
         version: link:../../packages/config

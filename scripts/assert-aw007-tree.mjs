@@ -29,10 +29,12 @@ const requiredRootFiles = [
 
 const implementationFiles = [
   "apps/api/package.json",
+  "apps/api/src/adapters/postgres/channel-event-journal.adapter.ts",
   "apps/api/src/app.module.ts",
   "apps/api/src/main.ts",
   "apps/api/src/platform/health.controller.ts",
   "apps/api/src/platform/health.service.ts",
+  "apps/api/test/channel-event-journal.spec.ts",
   "apps/api/test/health.spec.ts",
   "apps/api/tsconfig.json",
   "apps/api/vitest.config.ts",
@@ -162,6 +164,17 @@ const canonicalRootScripts = {
   ci: "pnpm format:check && pnpm lint && pnpm typecheck && pnpm boundaries:check && pnpm test:unit && pnpm db:check && pnpm scaffold:check && pnpm build",
 };
 
+const canonicalApiScripts = {
+  dev: "tsx watch src/main.ts",
+  build: "tsc -p tsconfig.json",
+  clean: "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
+  lint: "eslint src test vitest.config.ts",
+  typecheck: "tsc -p tsconfig.json --noEmit",
+  "test:unit": "vitest run --config vitest.config.ts --project unit",
+  "test:integration":
+    "vitest run --config vitest.config.ts --project integration --no-file-parallelism",
+};
+
 const canonicalChatCoreScripts = {
   build: "tsc -p tsconfig.json",
   clean: "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
@@ -203,6 +216,7 @@ const exactDependenciesByManifest = new Map([
     "apps/api/package.json",
     {
       dependencies: {
+        "@agent-workspace/chat-core": "workspace:*",
         "@agent-workspace/config": "workspace:*",
         "@agent-workspace/contracts": "workspace:*",
         "@agent-workspace/db": "workspace:*",
@@ -349,6 +363,26 @@ allowBuilds:
   "ssh2@1.17.0": false
 minimumReleaseAgeExclude:
   - "@types/react-dom@19.2.5"
+`;
+
+const canonicalApiVitestConfig = `import { vitestUnitDefaults } from "@agent-workspace/test-config/vitest";
+import { defineConfig } from "vitest/config";
+
+export default defineConfig({
+  ...vitestUnitDefaults,
+  test: {
+    ...vitestUnitDefaults.test,
+    projects: [
+      {
+        extends: true,
+        test: {
+          name: "unit",
+          include: ["test/health.spec.ts", "test/channel-event-journal.spec.ts"],
+        },
+      },
+    ],
+  },
+});
 `;
 
 const canonicalChatCoreVitestConfig = `import { defineConfig } from "vitest/config";
@@ -526,6 +560,183 @@ const exactAw010aS5TestNames = [
   "AW010A-S5 freezes the exact live function trigger and FK deferrability catalog",
   "AW010A-S5 rejects synthetic positive markers and keeps typed errors free of fixture row data",
 ];
+
+const exactAw010aS6FileHashes = new Map([
+  [
+    "apps/api/src/adapters/postgres/channel-event-journal.adapter.ts",
+    "092efa73c505ca965d0383dd944ce11e1bb819b0019eeb30b062dc0fdf76b769",
+  ],
+  [
+    "apps/api/test/channel-event-journal.spec.ts",
+    "d061bf7d24fa9547ef944e1a6042cb8d0049f0aac480d3b764cf84dbdcdfd792",
+  ],
+  ["apps/api/package.json", "147ef9b89bf811b87a81cedea929a78d107723c8e769d3703e42690fb012b636"],
+  ["apps/api/vitest.config.ts", "8a1a5f3d17adccce60b04c2ae46f455a3fb10e24a263644c8eb0049da99c4037"],
+  ["pnpm-lock.yaml", "5bd040ec0beaf0533bd6289c48bb8a180890fe8240b3779398f3deeab6f6a226"],
+]);
+
+const exactAw010aS6TestNames = [
+  "AW010A-S6 validates tenant-leading human and service actors with FOR SHARE",
+  "AW010A-S6 rejects a missing same-tenant actor before generators or allocation",
+  "AW010A-S6 rejects an actor kind mismatch before generators or allocation",
+  "AW010A-S6 lets the allowlisted lifecycle system actor skip principal lookup",
+  "AW010A-S6 rejects every non-allowlisted system actor before any query",
+  "AW010A-S6 locks tenant-leading stream state with FOR UPDATE and text bigint",
+  "AW010A-S6 fails closed when channel stream state is missing",
+  "AW010A-S6 detects bigint-max exhaustion and rejects malformed locked state",
+  "AW010A-S6 uses a guarded bigint update without lossy Number conversion",
+  "AW010A-S6 re-reads only zero-row updates to map status and otherwise fails closed",
+  "AW010A-S6 ignores forged envelope fields and calls each server generator exactly once",
+  "AW010A-S6 rejects forged correlation, payload, ID, actor relation, or timestamp before allocation",
+  "AW010A-S6 inserts exactly ten parameterized columns with explicit JSON payload",
+  "AW010A-S6 rejects insert cardinality or identity mismatches and returns bigint identity",
+  "AW010A-S6 keeps every custom error code and diagnostic fixed and row-free",
+  "AW010A-S6 preserves actor-prevalidation-lock-update-insert order without transaction control",
+];
+
+const exactAw010aS6SnapshotSemanticTokens = [
+  "function reflectOrSnapshotError<Value>(",
+  "function getOwnDataDescriptor(",
+  "() => Object.getOwnPropertyDescriptor(record, key),",
+  "function readActor(value: unknown): ActorSnapshot {",
+  'reflectOrSnapshotError(() => Array.isArray(value), "CHANNEL_ACTOR_INVALID")',
+  "() => Object.getPrototypeOf(value),",
+  'reflectOrSnapshotError(() => Reflect.ownKeys(value), "CHANNEL_ACTOR_INVALID")',
+  'const kind = getOwnDataDescriptor(value, "kind", "CHANNEL_ACTOR_INVALID");',
+  'const principalId = getOwnDataDescriptor(value, "principalId", "CHANNEL_ACTOR_INVALID");',
+  "function snapshotInput(input: unknown): InputSnapshot {",
+  'const tenantId = getOwnDataDescriptor(input, "tenantId", "CHANNEL_EVENT_INVALID");',
+  'const channelId = getOwnDataDescriptor(input, "channelId", "CHANNEL_EVENT_INVALID");',
+  'const actorValue = getOwnDataDescriptor(input, "actor", "CHANNEL_ACTOR_INVALID");',
+  'const intentValue = getOwnDataDescriptor(input, "intent", "CHANNEL_EVENT_INVALID");',
+  "function snapshotIntent(value: unknown): IntentSnapshot {",
+  "function snapshotPayloadArray(value: readonly unknown[], stack: Set<object>): unknown[] {",
+  "function snapshotPayloadRecord(value: object, stack: Set<object>): object {",
+  "function snapshotPayloadValue(value: unknown, stack: Set<object>): unknown {",
+  'reflectOrSnapshotError(() => Array.isArray(value), "CHANNEL_EVENT_INVALID")',
+  'reflectOrSnapshotError(() => Reflect.ownKeys(value), "CHANNEL_EVENT_INVALID")',
+  "const snapshot = Object.create(null) as Record<PropertyKey, unknown>;",
+  "Object.defineProperty(snapshot, key, {",
+  "Number.isFinite(value)",
+  "stack.add(value);",
+  "stack.delete(value);",
+  "const { eventType, payload } = input.intent;",
+];
+
+const exactAw010aS6AdversarialSemanticTokens = [
+  "changingKindGetter",
+  "changingPrincipalIdGetter",
+  "throwingGetter",
+  "ownKeysTrap",
+  "descriptorTrap",
+  "fixedErrorDescriptorTrap",
+  "Object.assign(Object.create({ inherited: true }), actorData)",
+  "extraAccessor",
+  "ignoredEnvelopeGetter",
+  "topLevelTenantGetter",
+  "topLevelIntentGetter",
+  "nestedPayloadGetter",
+  "cyclicPayload",
+  "payloadOwnKeysTrap",
+  "payloadDescriptorTrap",
+];
+
+const exactAw010aS6ErrorCodes = [
+  "CHANNEL_ACTOR_INVALID",
+  "CHANNEL_ACTOR_NOT_FOUND",
+  "CHANNEL_ACTOR_KIND_MISMATCH",
+  "CHANNEL_EVENT_INVALID",
+  "CHANNEL_STREAM_STATE_MISSING",
+  "CHANNEL_STREAM_EXHAUSTED",
+  "CHANNEL_STREAM_ALLOCATION_FAILED",
+  "CHANNEL_EVENT_INSERT_FAILED",
+];
+
+const canonicalAw010aS6ActorSql = `SELECT principal_kind::text AS principal_kind
+FROM public.principals
+WHERE tenant_id = $1
+  AND principal_id = $2
+FOR SHARE`;
+
+const canonicalAw010aS6StateSql = `SELECT last_event_seq::text AS last_event_seq
+FROM public.channel_event_sequences
+WHERE tenant_id = $1
+  AND channel_id = $2
+FOR UPDATE`;
+
+const canonicalAw010aS6UpdateSql = `UPDATE public.channel_event_sequences
+SET last_event_seq = last_event_seq + 1
+WHERE tenant_id = $1
+  AND channel_id = $2
+  AND last_event_seq = $3::bigint
+  AND last_event_seq < 9223372036854775807::bigint
+RETURNING last_event_seq::text AS event_seq`;
+
+const canonicalAw010aS6InsertSql = `INSERT INTO public.channel_events (
+  tenant_id,
+  channel_id,
+  event_seq,
+  event_id,
+  schema_version,
+  event_type,
+  actor_principal_id,
+  actor_kind,
+  occurred_at,
+  payload
+)
+VALUES ($1, $2, $3::bigint, $4, $5, $6, $7, $8, $9, $10::jsonb)
+RETURNING event_seq::text AS event_seq, event_id`;
+
+const canonicalAw010aS6ApiLockfileImporter = `  apps/api:
+    dependencies:
+      "@agent-workspace/chat-core":
+        specifier: workspace:*
+        version: link:../../packages/chat-core
+      "@agent-workspace/config":
+        specifier: workspace:*
+        version: link:../../packages/config
+      "@agent-workspace/contracts":
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      "@agent-workspace/db":
+        specifier: workspace:*
+        version: link:../../packages/db
+      "@aws-sdk/client-s3":
+        specifier: 3.1116.0
+        version: 3.1116.0
+      "@nestjs/common":
+        specifier: 11.2.1
+        version: 11.2.1(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@7.2.0)
+      "@nestjs/core":
+        specifier: 11.2.1
+        version: 11.2.1(@nestjs/common@11.2.1(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@7.2.0))(reflect-metadata@0.2.2)(rxjs@7.8.2)
+      "@nestjs/platform-fastify":
+        specifier: 11.2.1
+        version: 11.2.1(@nestjs/common@11.2.1(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@7.2.0))(@nestjs/core@11.2.1(@nestjs/common@11.2.1(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@7.2.0))(reflect-metadata@0.2.2)(rxjs@7.8.2))
+      fastify:
+        specifier: 5.12.1
+        version: 5.12.1
+      reflect-metadata:
+        specifier: 0.2.2
+        version: 0.2.2
+      rxjs:
+        specifier: 7.8.2
+        version: 7.8.2
+      socket.io:
+        specifier: 4.8.3
+        version: 4.8.3(supports-color@7.2.0)
+    devDependencies:
+      "@agent-workspace/test-config":
+        specifier: workspace:*
+        version: link:../../packages/test-config
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: 4.1.11
+        version: 4.1.11(@types/node@24.13.3)(@vitest/coverage-v8@4.1.11)(vite@8.2.2(@types/node@24.13.3)(esbuild@0.28.2)(tsx@4.23.12)(yaml@2.9.0))
+
+`;
 
 const exactExistingIntegrationTestCounts = new Map([
   ["packages/db/test/constraints.integration.spec.ts", 10],
@@ -768,10 +979,22 @@ function literalItTestNames(path, source) {
 function assertSourceIncludesAll(label, source, expectedTokens) {
   const missingTokens = expectedTokens.filter((token) => !source.includes(token));
   if (missingTokens.length > 0) {
-    throw new Error(
-      `${label} is missing exact AW-010A S5 semantic evidence: ${missingTokens.join(", ")}`,
-    );
+    throw new Error(`${label} is missing exact semantic evidence: ${missingTokens.join(", ")}`);
   }
+}
+
+function exactConstTemplateLiteral(path, source, name) {
+  const marker = `const ${name} = \``;
+  const start = source.indexOf(marker);
+  if (start === -1 || source.indexOf(marker, start + marker.length) !== -1) {
+    throw new Error(`${path} must define exactly one ${name} template literal`);
+  }
+  const valueStart = start + marker.length;
+  const valueEnd = source.indexOf("`;", valueStart);
+  if (valueEnd === -1) {
+    throw new Error(`${path} has an unterminated ${name} template literal`);
+  }
+  return source.slice(valueStart, valueEnd);
 }
 
 function normalizedSqlStatement(statement) {
@@ -929,6 +1152,9 @@ for (const field of [
   }
 }
 
+const apiPackage = await readJson("apps/api/package.json");
+assertExactObject("API package scripts", apiPackage.scripts ?? {}, canonicalApiScripts);
+
 const chatCorePackage = await readJson("packages/chat-core/package.json");
 assertExactObject(
   "Chat-core package scripts",
@@ -959,6 +1185,16 @@ assertExactObject("DB package scripts", dbPackage.scripts ?? {}, canonicalDbScri
 assertExactObject("DB public exports", dbPackage.exports, {
   ".": { types: "./src/index.ts", import: "./dist/index.js" },
 });
+
+const apiVitestConfig = await readFile(resolve(root, "apps/api/vitest.config.ts"), "utf8");
+if (apiVitestConfig !== canonicalApiVitestConfig) {
+  throw new Error("API Vitest config does not match the AW-010A S6 exact unit-only oracle");
+}
+if (apiVitestConfig.includes("integration") || apiVitestConfig.includes("**")) {
+  throw new Error(
+    "API Vitest config must not pre-allow an integration project or glob in AW-010A S6",
+  );
+}
 
 const chatCoreVitestConfig = await readFile(
   resolve(root, "packages/chat-core/vitest.config.ts"),
@@ -1046,6 +1282,185 @@ for (const [path, expectedCount] of exactExistingIntegrationTestCounts) {
 }
 if (cumulativeIntegrationTestCount !== 49) {
   throw new Error("AW-010A S5 cumulative integration inventory must contain exactly 49 tests");
+}
+
+const aw010aS6SourceByPath = new Map();
+for (const [path, expectedHash] of exactAw010aS6FileHashes) {
+  const source = await readFile(resolve(root, path));
+  const actualHash = createHash("sha256").update(source).digest("hex");
+  if (actualHash !== expectedHash) {
+    throw new Error(`${path} does not match the AW-010A S6 byte-exact oracle`);
+  }
+  aw010aS6SourceByPath.set(path, source.toString("utf8"));
+}
+
+const aw010aS6TestPath = "apps/api/test/channel-event-journal.spec.ts";
+const aw010aS6TestSource = aw010aS6SourceByPath.get(aw010aS6TestPath);
+if (aw010aS6TestSource === undefined) {
+  throw new Error(`AW-010A S6 test source is missing: ${aw010aS6TestPath}`);
+}
+const aw010aS6TestNames = literalItTestNames(aw010aS6TestPath, aw010aS6TestSource);
+if (
+  aw010aS6TestNames.length !== 16 ||
+  new Set(aw010aS6TestNames).size !== 16 ||
+  aw010aS6TestNames.some((name) => !name.startsWith("AW010A-S6 "))
+) {
+  throw new Error("AW-010A S6 unit inventory must contain 16 unique prefixed it tests");
+}
+assertExactOrderedList("AW-010A S6 unit test names", aw010aS6TestNames, exactAw010aS6TestNames);
+assertSourceIncludesAll(
+  "AW-010A S6 adversarial tests",
+  aw010aS6TestSource,
+  exactAw010aS6AdversarialSemanticTokens,
+);
+
+const aw010aS6AdapterPath = "apps/api/src/adapters/postgres/channel-event-journal.adapter.ts";
+const aw010aS6AdapterSource = aw010aS6SourceByPath.get(aw010aS6AdapterPath);
+if (aw010aS6AdapterSource === undefined) {
+  throw new Error(`AW-010A S6 adapter source is missing: ${aw010aS6AdapterPath}`);
+}
+assertSourceIncludesAll(
+  "AW-010A S6 own-data snapshot adapter",
+  aw010aS6AdapterSource,
+  exactAw010aS6SnapshotSemanticTokens,
+);
+if (
+  /\b(?:WeakSet|journalErrors|isJournalError|rethrowSnapshotError)\b/u.test(aw010aS6AdapterSource)
+) {
+  throw new Error(
+    "AW-010A S6 hostile reflection must normalize directly to the boundary error code",
+  );
+}
+
+const aw010aS6ExportLines = aw010aS6AdapterSource.match(/^\s*export\b.*$/gmu) ?? [];
+const aw010aS6ExportDeclarations = [
+  ...aw010aS6AdapterSource.matchAll(
+    /^\s*export\s+(interface|class|function)\s+([A-Za-z_$][A-Za-z0-9_$]*)/gmu,
+  ),
+].map((match) => `${match[1]} ${match[2]}`);
+if (aw010aS6ExportLines.length !== aw010aS6ExportDeclarations.length) {
+  throw new Error(
+    "AW-010A S6 adapter must not expose re-exports, default exports, or extra surface",
+  );
+}
+assertExactOrderedList("AW-010A S6 adapter exports", aw010aS6ExportDeclarations, [
+  "interface ChannelEventJournalTransactionClient",
+  "class PostgresChannelEventJournalError",
+  "function createPostgresChannelEventTransaction",
+]);
+
+const aw010aS6ImportLines = aw010aS6AdapterSource.match(/^import\b.*$/gmu) ?? [];
+assertExactOrderedList("AW-010A S6 adapter imports", aw010aS6ImportLines, [
+  'import type { ChannelEventTransaction } from "@agent-workspace/chat-core";',
+  'import { DurableEventV1 } from "@agent-workspace/contracts";',
+]);
+const aw010aS6ImportSpecifiers = [
+  ...aw010aS6AdapterSource.matchAll(/(?:\bfrom\s+|\bimport\s*\(\s*)["']([^"']+)["']/gu),
+].map((match) => match[1]);
+assertExactOrderedList("AW-010A S6 adapter module specifiers", aw010aS6ImportSpecifiers, [
+  "@agent-workspace/chat-core",
+  "@agent-workspace/contracts",
+]);
+const forbiddenAw010aS6AdapterImport = aw010aS6ImportSpecifiers.find((specifier) =>
+  ["pg", "@types/pg", "@agent-workspace/db"].includes(specifier),
+);
+if (forbiddenAw010aS6AdapterImport !== undefined) {
+  throw new Error(
+    `AW-010A S6 adapter has a forbidden database import: ${forbiddenAw010aS6AdapterImport}`,
+  );
+}
+
+for (const [name, expectedSql] of [
+  ["ACTOR_SQL", canonicalAw010aS6ActorSql],
+  ["STATE_SQL", canonicalAw010aS6StateSql],
+  ["UPDATE_SQL", canonicalAw010aS6UpdateSql],
+  ["INSERT_SQL", canonicalAw010aS6InsertSql],
+]) {
+  const actualSql = exactConstTemplateLiteral(aw010aS6AdapterPath, aw010aS6AdapterSource, name);
+  if (actualSql !== expectedSql) {
+    throw new Error(
+      `${aw010aS6AdapterPath} ${name} does not match the AW-010A S6 exact SQL oracle`,
+    );
+  }
+}
+
+const aw010aS6ErrorCodeType = aw010aS6AdapterSource.match(
+  /type ChannelEventJournalErrorCode\s*=([\s\S]*?);/u,
+);
+if (aw010aS6ErrorCodeType === null) {
+  throw new Error("AW-010A S6 adapter must preserve the exact error-code type");
+}
+const aw010aS6TypedErrorCodes = [
+  ...aw010aS6ErrorCodeType[1].matchAll(/\|\s+"(CHANNEL_[A-Z_]+)"/gu),
+].map((match) => match[1]);
+assertExactOrderedList(
+  "AW-010A S6 typed error codes",
+  aw010aS6TypedErrorCodes,
+  exactAw010aS6ErrorCodes,
+);
+const aw010aS6LiteralErrorCodes = [
+  ...new Set([...aw010aS6AdapterSource.matchAll(/"(CHANNEL_[A-Z_]+)"/gu)].map((match) => match[1])),
+];
+if (aw010aS6LiteralErrorCodes.length !== 8) {
+  throw new Error("AW-010A S6 adapter must contain exactly eight distinct error-code literals");
+}
+assertExactList(
+  "AW-010A S6 literal error codes",
+  aw010aS6LiteralErrorCodes,
+  exactAw010aS6ErrorCodes,
+);
+
+for (const [generatorName, pattern] of [
+  ["generateEventId", /\bgenerateEventId\s*\(\s*\)/gu],
+  ["clock", /\bclock\s*\(\s*\)/gu],
+]) {
+  if ((aw010aS6AdapterSource.match(pattern) ?? []).length !== 1) {
+    throw new Error(`AW-010A S6 adapter must call ${generatorName} exactly once`);
+  }
+}
+const aw010aS6AppendFlowTokens = [
+  "const snapshot = snapshotInput(input);",
+  "await validateActor(transaction, snapshot);",
+  "const eventId = generateEventId();",
+  "const occurredAt = clock();",
+  "const dummyEvent = prevalidateEvent(snapshot, eventId, occurredAt);",
+  "const sequence = await allocateSequence(",
+  "const event = withActualSequence(dummyEvent, sequence.text);",
+  "const returnedEventId = await insertEvent(transaction, event);",
+];
+let previousAw010aS6FlowIndex = -1;
+for (const token of aw010aS6AppendFlowTokens) {
+  const index = aw010aS6AdapterSource.indexOf(token, previousAw010aS6FlowIndex + 1);
+  if (index === -1) {
+    throw new Error(`AW-010A S6 adapter has invalid append ordering at: ${token}`);
+  }
+  previousAw010aS6FlowIndex = index;
+}
+if (/\.\.\.\s*(?:input|snapshot|intent)\b/u.test(aw010aS6AdapterSource)) {
+  throw new Error("AW-010A S6 adapter must not spread caller-controlled input into an event");
+}
+if (/\b(?:BEGIN|COMMIT|ROLLBACK)\b/iu.test(aw010aS6AdapterSource)) {
+  throw new Error("AW-010A S6 adapter must not issue transaction-control SQL");
+}
+if (/\bcontroller\b/iu.test(aw010aS6AdapterSource)) {
+  throw new Error("AW-010A S6 adapter must not add controller surface");
+}
+
+const aw010aS6LockSource = aw010aS6SourceByPath.get("pnpm-lock.yaml");
+if (aw010aS6LockSource === undefined) {
+  throw new Error("AW-010A S6 lockfile source is missing");
+}
+const aw010aS6ApiImporterMatches = [
+  ...aw010aS6LockSource.matchAll(/^  apps\/api:\n[\s\S]*?(?=^  apps\/web:\n)/gmu),
+];
+if (
+  aw010aS6ApiImporterMatches.length !== 1 ||
+  aw010aS6ApiImporterMatches[0][0] !== canonicalAw010aS6ApiLockfileImporter
+) {
+  throw new Error("pnpm-lock.yaml apps/api importer does not match the AW-010A S6 exact oracle");
+}
+if (/(?:^|\n)\s+(?:"?pg"?|"?@types\/pg"?):/u.test(aw010aS6ApiImporterMatches[0][0])) {
+  throw new Error("pnpm-lock.yaml apps/api importer must not add pg or @types/pg");
 }
 
 const workspacePolicy = await readFile(resolve(root, "pnpm-workspace.yaml"), "utf8");
