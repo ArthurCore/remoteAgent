@@ -25,6 +25,9 @@ const requiredRootFiles = [
   "tsconfig.base.json",
   "turbo.json",
   "docs/operations/container-image-lock.md",
+  "docs/reviews/aw-010a-full-evidence-handoff-xhigh.md",
+  "docs/reviews/aw-010a-final-spec-closure-xhigh.md",
+  "docs/reviews/aw-010a-final-quality-security-closure-xhigh.md",
 ];
 
 const implementationFiles = [
@@ -157,6 +160,7 @@ const canonicalRootScripts = {
   "db:migrate": "pnpm --filter @agent-workspace/db db:migrate",
   "test:unit": "turbo run test:unit",
   "test:integration": "pnpm --filter @agent-workspace/db test:integration",
+  "test:integration:api": "pnpm --filter @agent-workspace/api test:integration",
   "scaffold:check": "node scripts/assert-aw007-tree.mjs",
   "compose:up": "scripts/compose.sh up -d --build --wait",
   "compose:down": "scripts/compose.sh down --remove-orphans",
@@ -1201,6 +1205,10 @@ jobs:
         env:
           AW008D_TEST_EVIDENCE_DIRECTORY: \${{ github.workspace }}/artifacts/testcontainers
         run: pnpm test:integration
+      - name: Run API PostgreSQL integration
+        env:
+          AW008D_TEST_EVIDENCE_DIRECTORY: \${{ github.workspace }}/artifacts/testcontainers
+        run: pnpm test:integration:api
       - name: Upload Testcontainers evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -2030,8 +2038,71 @@ if (workspacePolicy !== canonicalWorkspacePolicy) {
 
 const workflow = await readFile(resolve(root, ".github/workflows/ci.yml"), "utf8");
 if (workflow !== canonicalWorkflow) {
-  throw new Error("PR workflow does not match the immutable AW-008 blocking lane");
+  throw new Error("PR workflow does not match the immutable AW-008 and AW-010A S8 blocking lane");
 }
+const aw010aS8WorkflowStageTokens = [
+  "- name: Install frozen dependencies",
+  "- name: Run uncached CI",
+  "- name: Run Testcontainers integration",
+  "- name: Run API PostgreSQL integration",
+  "- name: Upload Testcontainers evidence",
+];
+let previousAw010aS8WorkflowStage = -1;
+for (const token of aw010aS8WorkflowStageTokens) {
+  const index = workflow.indexOf(token, previousAw010aS8WorkflowStage + 1);
+  if (index === -1) {
+    throw new Error(`AW-010A S8 hosted workflow is missing or reorders: ${token}`);
+  }
+  previousAw010aS8WorkflowStage = index;
+}
+if (
+  (workflow.match(/AW008D_TEST_EVIDENCE_DIRECTORY:/gu) ?? []).length !== 2 ||
+  (workflow.match(/^\s*run: pnpm test:integration$/gmu) ?? []).length !== 1 ||
+  (workflow.match(/^\s*run: pnpm test:integration:api$/gmu) ?? []).length !== 1 ||
+  (workflow.match(/actions\/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02/gu) ?? [])
+    .length !== 1 ||
+  !workflow.endsWith("          if-no-files-found: error\n")
+) {
+  throw new Error(
+    "AW-010A S8 hosted lane must retain two evidence-producing integration phases and one final fail-closed pinned upload",
+  );
+}
+
+const aw010aS8Handoff = await readFile(
+  resolve(root, "docs/reviews/aw-010a-full-evidence-handoff-xhigh.md"),
+  "utf8",
+);
+assertSourceIncludesAll("AW-010A S8 full evidence handoff", aw010aS8Handoff, [
+  "# AW-010A Full Evidence Handoff — xhigh",
+  "Hosted final-head success is **PENDING**",
+  "Exactly **4** retained JSON files with **4** unique run IDs",
+  "Complete-byte credential-pattern matches: **0**",
+  "Exact-label running/stopped container residue after both phases: **0**",
+  "Gitleaks `8.30.1`",
+  "Trivy `0.74.0`",
+  "Result: **0 findings**",
+  "reported **0 misconfigurations**",
+  "AW-010A remains **RUNNING**",
+]);
+if (/hosted final-head success is \*\*(?:PASS|SUCCESS|SUCCEEDED)\*\*/iu.test(aw010aS8Handoff)) {
+  throw new Error(
+    "AW-010A S8 handoff must not claim hosted final-head success before the run exists",
+  );
+}
+const aw010aS8SpecClosure = await readFile(
+  resolve(root, "docs/reviews/aw-010a-final-spec-closure-xhigh.md"),
+  "utf8",
+);
+const aw010aS8QualityClosure = await readFile(
+  resolve(root, "docs/reviews/aw-010a-final-quality-security-closure-xhigh.md"),
+  "utf8",
+);
+assertSourceIncludesAll("AW-010A S8 specification closure path", aw010aS8SpecClosure, [
+  "# AW-010A Final Specification Closure — xhigh",
+]);
+assertSourceIncludesAll("AW-010A S8 quality/security closure path", aw010aS8QualityClosure, [
+  "# AW-010A Final Quality and Security Closure — xhigh",
+]);
 
 const schemaSource = await readFile(resolve(root, "packages/db/src/schema/foundation.ts"), "utf8");
 const sourceTableNames = [...schemaSource.matchAll(/\bpgTable\(\s*"([^"]+)"/gu)].map(
