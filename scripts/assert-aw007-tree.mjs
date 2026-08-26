@@ -35,6 +35,7 @@ const implementationFiles = [
   "apps/api/src/platform/health.controller.ts",
   "apps/api/src/platform/health.service.ts",
   "apps/api/test/channel-event-journal.spec.ts",
+  "apps/api/test/channel-event-journal.integration.spec.ts",
   "apps/api/test/health.spec.ts",
   "apps/api/tsconfig.json",
   "apps/api/vitest.config.ts",
@@ -380,6 +381,15 @@ export default defineConfig({
           include: ["test/health.spec.ts", "test/channel-event-journal.spec.ts"],
         },
       },
+      {
+        extends: true,
+        test: {
+          name: "integration",
+          include: ["test/channel-event-journal.integration.spec.ts"],
+          passWithNoTests: false,
+          fileParallelism: false,
+        },
+      },
     ],
   },
 });
@@ -571,7 +581,6 @@ const exactAw010aS6FileHashes = new Map([
     "d061bf7d24fa9547ef944e1a6042cb8d0049f0aac480d3b764cf84dbdcdfd792",
   ],
   ["apps/api/package.json", "147ef9b89bf811b87a81cedea929a78d107723c8e769d3703e42690fb012b636"],
-  ["apps/api/vitest.config.ts", "8a1a5f3d17adccce60b04c2ae46f455a3fb10e24a263644c8eb0049da99c4037"],
   ["pnpm-lock.yaml", "5bd040ec0beaf0533bd6289c48bb8a180890fe8240b3779398f3deeab6f6a226"],
 ]);
 
@@ -593,6 +602,356 @@ const exactAw010aS6TestNames = [
   "AW010A-S6 keeps every custom error code and diagnostic fixed and row-free",
   "AW010A-S6 preserves actor-prevalidation-lock-update-insert order without transaction control",
 ];
+
+const exactAw010aS7FileHashes = new Map([
+  [
+    "apps/api/test/channel-event-journal.integration.spec.ts",
+    "844db833c25e327b8c617cdad7c4f46c828ed40f759cb15b35306ad9f5c08b6f",
+  ],
+  ["apps/api/vitest.config.ts", "ef19485759b1279fb8430ee36da7ff494e89cc00ee761ec8190eb3bc45fbf030"],
+]);
+
+const exactAw010aS7TestNames = [
+  "AW010A-S7 commits and round-trips one canonical event through DurableEventV1",
+  "AW010A-S7 allocates exact unique contiguous 1 through 4 for four same-channel commits",
+  "AW010A-S7 allocates sequence 1 independently for concurrent different-channel commits",
+  "AW010A-S7 caller rollback after successful append leaves sequence zero and no events",
+  "AW010A-S7 duplicate event ID rolls back the attempted sequence allocation",
+  "AW010A-S7 invalid envelope and payload fail before allocation with zero state change",
+  "AW010A-S7 round-trips bigint beyond the JavaScript safe integer exactly",
+  "AW010A-S7 allocates and commits bigint MAX from MAX minus one",
+  "AW010A-S7 rejects exhausted bigint MAX without insert or state change",
+  "AW010A-S7 commits exactly one bigint MAX winner for two MAX minus one contenders",
+  "AW010A-S7 maps an existing channel with missing sequence state without writes",
+  "AW010A-S7 rejects a channel that exists only in another tenant without cross-tenant writes",
+  "AW010A-S7 rejects a cross-tenant human principal before allocation",
+  "AW010A-S7 rejects a database principal kind mismatch before allocation",
+  "AW010A-S7 accepts only the lifecycle system actor and rejects arbitrary system IDs before queries",
+  "AW010A-S7 enforces event ID and tenant channel sequence uniqueness with exact catalog diagnostics",
+  "AW010A-S7 rejects runtime journal UPDATE and DELETE while preserving the stored event",
+  "AW010A-S7 runtime-role adapter append and select round-trip a human event",
+  "AW010A-S7 runtime role cannot perform DDL or mutate the Drizzle ledger",
+  "AW010A-S7 discloses runtime raw sequence-state UPDATE and DELETE access inside rollback",
+];
+
+const exactAw010aS7HarnessSemanticTokens = [
+  'type Client = Awaited<ReturnType<PostgresTestHarness["connect"]>>;',
+  "rowCount: result.rowCount ?? -1,",
+  'const client = await activeHarness().connect("runtime");',
+  'await client.query("BEGIN");',
+  `await client.query("SET LOCAL statement_timeout = '10s'");`,
+  `await client.query("SET LOCAL lock_timeout = '10s'");`,
+  'await client.query("ROLLBACK");',
+  "client.release();",
+  "async function acquireRuntimeClients(count: number): Promise<readonly Client[]> {",
+  "clients.push(await beginRuntimeClient());",
+  "await rollbackAndReleaseAll(clients);",
+  "async function rollbackAndReleaseAll(clients: readonly Client[]): Promise<void> {",
+  "const settled = await Promise.allSettled(clients.map((client) => rollbackAndRelease(client)));",
+  'throw new AggregateError(failures, "PostgreSQL runtime client cleanup failed");',
+  '"PostgreSQL runtime client acquisition and cleanup failed"',
+  "const promise = new Promise<Value>((resolvePromise, rejectPromise) => {",
+  "return await Promise.race([operation, timeout]);",
+  "clearTimeout(timer);",
+  "harness = await startPostgresTestHarness();",
+  "await testHarness.resetDatabase();",
+  "await applyFrozenMigrations();",
+  "const FROZEN_MIGRATIONS = [",
+  'new URL("../../../packages/db/drizzle/0000_aw008_foundation.sql", import.meta.url)',
+  'new URL("../../../packages/db/drizzle/0001_aw010a_channel_stream.sql", import.meta.url)',
+  'const DRIZZLE_STATEMENT_BREAKPOINT = "--> statement-breakpoint";',
+  'createHash("sha256").update(bytes).digest("hex") !== migration.hash',
+  ".split(DRIZZLE_STATEMENT_BREAKPOINT)",
+  'const client = await activeHarness().connect("migrator");',
+  'await client.query("CREATE SCHEMA IF NOT EXISTS drizzle");',
+  "CREATE TABLE IF NOT EXISTS drizzle.__drizzle_migrations",
+  "INSERT INTO drizzle.__drizzle_migrations (hash, created_at)",
+  "[migration.hash, migration.createdAt]",
+  "runId: testHarness.resources.runId,",
+  "labels: Object.entries(testHarness.resources.labels).map(([key, value]) => `${key}=${value}`),",
+  "testHarness.resources.ownerRole,",
+  "testHarness.resources.migratorRole,",
+  "testHarness.resources.runtimeRole,",
+  "testHarness.connectionUrls.owner,",
+  "testHarness.connectionUrls.migrator,",
+  "testHarness.connectionUrls.runtime,",
+  "const stats = await lstat(capture.evidencePath);",
+  "!stats.isFile() || stats.isSymbolicLink()",
+  "(stats.mode & 0o777) !== 0o600",
+  "originalBytes = await readFile(capture.evidencePath);",
+  "!originalBytes.equals(capture.expectedBytes)",
+  'await writeFile(capture.evidencePath, Buffer.from("exclusive-create-probe", "utf8"), {',
+  'flag: "wx",',
+  "mode: 0o600,",
+  'code !== "EEXIST"',
+  "rereadBytes = await readFile(capture.evidencePath);",
+  "!rereadBytes.equals(originalBytes)",
+  "!rereadBytes.equals(capture.expectedBytes)",
+  "const forbiddenValues = [...capture.roleNames, ...capture.connectionUrls];",
+  "const leakedValueCount = forbiddenValues.filter((value) => text.includes(value)).length;",
+  String.raw`/postgres(?:ql)?:\/\//giu,`,
+  String.raw`/[a-z][a-z0-9+.-]*:\/\/[^/\s:@]+(?::[^/\s@]*)?@/giu,`,
+  String.raw`/["']?(?:password|passwd|pwd|secret|username|user)["']?\s*[:=]/giu,`,
+  String.raw`/\b(?:DATABASE_URL|MIGRATION_DATABASE_URL)\b/gu,`,
+  "const grammarMatchCount = credentialGrammar.reduce(",
+  'const args = ["ps", "-a"];',
+  'args.push("--filter", `label=${label}`);',
+  'args.push("--format", "{{.ID}}");',
+  'const { stdout } = await execFile("docker", args, { encoding: "utf8" });',
+  "await testHarness.stop();",
+  "const residue = await findResidualContainerIds(capture.resources.labels);",
+  "if (residue.length !== 0)",
+  'throw new AggregateError(failures, "PostgreSQL integration teardown failed");',
+];
+
+const exactAw010aS7SemanticTokensByTestName = new Map([
+  [
+    exactAw010aS7TestNames[0],
+    [
+      "return journal.append(appendInput(fixture));",
+      "expect(result).toEqual({ eventSeq: 1n, eventId, occurredAt: OCCURRED_AT });",
+      "expect(durableFromStored(rows[0]!)).toEqual(DurableEventV1.parse(expectedEvent));",
+      "expect(rows[0]!.payload).toEqual(expectedEvent.payload);",
+      'expect(await queryState(fixture)).toBe("1");',
+      "expect(rows).toHaveLength(1);",
+    ],
+  ],
+  [
+    exactAw010aS7TestNames[1],
+    [
+      "const clients = await acquireRuntimeClients(4);",
+      "const barrier = deferred<void>();",
+      "await barrier.promise;",
+      "barrier.resolve();",
+      "const results = await withDeadline(Promise.all(operations));",
+      "expect(rows.map(({ event_seq }) => BigInt(event_seq))).toEqual([1n, 2n, 3n, 4n]);",
+      'expect(await queryState(fixture)).toBe("4");',
+      "expect(rows).toHaveLength(4);",
+    ],
+  ],
+  [
+    exactAw010aS7TestNames[2],
+    [
+      "const second = await seedSecondChannel(first);",
+      "const clients = await acquireRuntimeClients(fixtures.length);",
+      "const barrier = deferred<void>();",
+      "await barrier.promise;",
+      "barrier.resolve();",
+      "const results = await withDeadline(Promise.all(operations));",
+      "expect(results[0]!.eventSeq).toBe(1n);",
+      "expect(results[1]!.eventSeq).toBe(1n);",
+      'expect((await queryEvents(fixture)).map(({ event_seq }) => event_seq)).toEqual(["1"]);',
+    ],
+  ],
+  [
+    exactAw010aS7TestNames[3],
+    [
+      "const result = await journal.append(appendInput(fixture));",
+      "expect(result.eventSeq).toBe(1n);",
+      'await client.query("ROLLBACK");',
+      'expect(await queryState(fixture)).toBe("0");',
+      "expect(await queryEvents(fixture)).toEqual([]);",
+    ],
+  ],
+  [
+    exactAw010aS7TestNames[4],
+    [
+      "eventId: duplicateEventId",
+      'expect(error.code).toBe("23505");',
+      'expect(error.constraint).toBe("channel_events_event_id_key");',
+      'expect(await queryState(fixture)).toBe("1");',
+      "expect(rows).toHaveLength(1);",
+      'expect(rows[0]!.event_seq).toBe("1");',
+    ],
+  ],
+  [
+    exactAw010aS7TestNames[5],
+    [
+      'eventType: "message.updated",',
+      'occurredAt: "2026-08-25T12:34:56.123456+00:00",',
+      'expect((error as PostgresChannelEventJournalError).code).toBe("CHANNEL_EVENT_INVALID");',
+      "expect(queryCount).toBe(0);",
+      'expect(await queryState(fixture)).toBe("0");',
+      "expect(await queryEvents(fixture)).toEqual([]);",
+    ],
+  ],
+  [
+    exactAw010aS7TestNames[6],
+    [
+      "await setSequence(fixture, BEYOND_SAFE_INTEGER);",
+      "expect(result.eventSeq).toBe(9_007_199_254_740_993n);",
+      'expect(typeof result.eventSeq).toBe("bigint");',
+      "expect(await queryState(fixture)).toBe(BEYOND_SAFE_INTEGER_PLUS_ONE);",
+      "expect(rows[0]!.event_seq).toBe(BEYOND_SAFE_INTEGER_PLUS_ONE);",
+      "expect(durableFromStored(rows[0]!).event_seq).toBe(BEYOND_SAFE_INTEGER_PLUS_ONE);",
+    ],
+  ],
+  [
+    exactAw010aS7TestNames[7],
+    [
+      "await setSequence(fixture, MAX_PG_BIGINT_MINUS_ONE);",
+      "expect(result.eventSeq).toBe(9_223_372_036_854_775_807n);",
+      "expect(await queryState(fixture)).toBe(MAX_PG_BIGINT);",
+      "expect(rows).toHaveLength(1);",
+      "expect(rows[0]!.event_seq).toBe(MAX_PG_BIGINT);",
+    ],
+  ],
+  [
+    exactAw010aS7TestNames[8],
+    [
+      "await setSequence(fixture, MAX_PG_BIGINT);",
+      'expect((error as PostgresChannelEventJournalError).code).toBe("CHANNEL_STREAM_EXHAUSTED");',
+      "expect(await queryState(fixture)).toBe(MAX_PG_BIGINT);",
+      "expect(await queryEvents(fixture)).toEqual([]);",
+    ],
+  ],
+  [
+    exactAw010aS7TestNames[9],
+    [
+      "await setSequence(fixture, MAX_PG_BIGINT_MINUS_ONE);",
+      "const clients = await acquireRuntimeClients(2);",
+      "const barrier = deferred<void>();",
+      "barrier.resolve();",
+      "settled = await withDeadline(Promise.allSettled(operations));",
+      "expect(fulfilled).toHaveLength(1);",
+      "expect(rejected).toHaveLength(1);",
+      '"CHANNEL_STREAM_EXHAUSTED",',
+      "expect(await queryState(fixture)).toBe(MAX_PG_BIGINT);",
+      "expect(rows).toHaveLength(1);",
+    ],
+  ],
+  [
+    exactAw010aS7TestNames[10],
+    [
+      "const sentinel = await seedFixture();",
+      "DELETE FROM public.channel_event_sequences",
+      'code: "CHANNEL_STREAM_STATE_MISSING",',
+      "expect(await queryState(target)).toBeUndefined();",
+      "expect(await queryState(sentinel)).toBe(sentinelStateBefore);",
+      "expect(await queryEvents(sentinel)).toEqual(sentinelEventsBefore);",
+    ],
+  ],
+  [
+    exactAw010aS7TestNames[11],
+    [
+      "const tenantAControl = await seedFixture();",
+      "const tenantBChannel = await seedFixture();",
+      "channelId: tenantBChannel.channelId,",
+      'code: "CHANNEL_STREAM_STATE_MISSING",',
+      "expect(await queryState(tenantAControl)).toBe(tenantAStateBefore);",
+      "expect(await queryState(tenantBChannel)).toBe(tenantBStateBefore);",
+      "expect(await queryEvents(tenantBChannel)).toEqual(tenantBEventsBefore);",
+    ],
+  ],
+  [
+    exactAw010aS7TestNames[12],
+    [
+      'const actor = trustedActor({ kind: "human", principalId: tenantB.principalId });',
+      'code: "CHANNEL_ACTOR_NOT_FOUND",',
+      "values: [target.tenantId, tenantB.principalId],",
+      'expect(await queryState(target)).toBe("0");',
+      "expect(await queryEvents(tenantB)).toEqual(tenantBEventsBefore);",
+    ],
+  ],
+  [
+    exactAw010aS7TestNames[13],
+    [
+      'const fixture = await seedFixture({ principalKind: "service" });',
+      'const actor = trustedActor({ kind: "human", principalId: fixture.principalId });',
+      'code: "CHANNEL_ACTOR_KIND_MISMATCH",',
+      "values: [fixture.tenantId, fixture.principalId],",
+      'expect(await queryState(fixture)).toBe("0");',
+      "expect(await queryEvents(fixture)).toEqual([]);",
+    ],
+  ],
+  [
+    exactAw010aS7TestNames[14],
+    [
+      'actor_principal_id: "system:channel-lifecycle",',
+      'principalId: "system:arbitrary-s7",',
+      'code: "CHANNEL_ACTOR_INVALID",',
+      "expect(queryCount).toBe(0);",
+      "expect(generatorCalls).toBe(0);",
+      "expect(clockCalls).toBe(0);",
+      'expect(await queryState(fixture)).toBe("1");',
+      "expect(await queryEvents(fixture)).toEqual(storedBefore);",
+    ],
+  ],
+  [
+    exactAw010aS7TestNames[15],
+    [
+      "FROM pg_catalog.pg_constraint AS constraint_record",
+      'constraint_name: "channel_events_event_id_key",',
+      'definition: "UNIQUE (event_id)",',
+      'constraint_name: "channel_events_pkey",',
+      'definition: "PRIMARY KEY (tenant_id, channel_id, event_seq)",',
+      "INSERT INTO public.channel_events (",
+      'expect(duplicateEventIdError.constraint).toBe("channel_events_event_id_key");',
+      'expect(duplicateSequenceError.constraint).toBe("channel_events_pkey");',
+      "expect(await queryEvents(fixture)).toEqual(seededRows);",
+    ],
+  ],
+  [
+    exactAw010aS7TestNames[16],
+    [
+      "UPDATE public.channel_events",
+      "DELETE FROM public.channel_events",
+      'expect(updateError.code).toBe("55000");',
+      'expect(updateError.message).toBe("channel events are append-only");',
+      'expect(deleteError.code).toBe("55000");',
+      'expect(deleteError.message).toBe("channel events are append-only");',
+      "expect(await queryEvents(fixture)).toEqual(storedBefore);",
+    ],
+  ],
+  [
+    exactAw010aS7TestNames[17],
+    [
+      'const actor = trustedActor({ kind: "human", principalId: fixture.principalId });',
+      '"SELECT current_user"',
+      "expect(identity.rows).toEqual([{ current_user: activeHarness().resources.runtimeRole }]);",
+      "expect(result).toEqual({ eventSeq: 1n, eventId, occurredAt: OCCURRED_AT });",
+      'await client.query("COMMIT");',
+      "expect(durableFromStored(rows[0]!)).toEqual(DurableEventV1.parse(expectedEvent));",
+      'actor_kind: "human",',
+    ],
+  ],
+  [
+    exactAw010aS7TestNames[18],
+    [
+      "pg_catalog.has_database_privilege",
+      "pg_catalog.has_schema_privilege",
+      "pg_catalog.has_table_privilege",
+      "can_create_in_database: false, can_create_in_public: false",
+      "can_insert: false,",
+      "can_update: false,",
+      "can_delete: false,",
+      "can_truncate: false,",
+      "CREATE TABLE public.${forbiddenTable}",
+      "INSERT INTO drizzle.__drizzle_migrations",
+      "UPDATE drizzle.__drizzle_migrations",
+      "DELETE FROM drizzle.__drizzle_migrations",
+      'expect(ddlError.code).toBe("42501");',
+      "expect(ledgerAfter.rows).toEqual(ledgerBefore.rows);",
+    ],
+  ],
+  [
+    exactAw010aS7TestNames[19],
+    [
+      "'public.channel_event_sequences',",
+      "can_update: true,",
+      "can_delete: true,",
+      "UPDATE public.channel_event_sequences",
+      "DELETE FROM public.channel_event_sequences",
+      "expect(updated.rowCount).toBe(1);",
+      "expect(deleted.rowCount).toBe(1);",
+      'last_event_seq: "7",',
+      'expect(await queryState(first)).toBe("0");',
+      'expect(await queryState(second)).toBe("0");',
+      "expect(await queryEvents(first)).toEqual([]);",
+      "expect(await queryEvents(second)).toEqual([]);",
+    ],
+  ],
+]);
 
 const exactAw010aS6SnapshotSemanticTokens = [
   "function reflectOrSnapshotError<Value>(",
@@ -1186,16 +1545,6 @@ assertExactObject("DB public exports", dbPackage.exports, {
   ".": { types: "./src/index.ts", import: "./dist/index.js" },
 });
 
-const apiVitestConfig = await readFile(resolve(root, "apps/api/vitest.config.ts"), "utf8");
-if (apiVitestConfig !== canonicalApiVitestConfig) {
-  throw new Error("API Vitest config does not match the AW-010A S6 exact unit-only oracle");
-}
-if (apiVitestConfig.includes("integration") || apiVitestConfig.includes("**")) {
-  throw new Error(
-    "API Vitest config must not pre-allow an integration project or glob in AW-010A S6",
-  );
-}
-
 const chatCoreVitestConfig = await readFile(
   resolve(root, "packages/chat-core/vitest.config.ts"),
   "utf8",
@@ -1461,6 +1810,217 @@ if (
 }
 if (/(?:^|\n)\s+(?:"?pg"?|"?@types\/pg"?):/u.test(aw010aS6ApiImporterMatches[0][0])) {
   throw new Error("pnpm-lock.yaml apps/api importer must not add pg or @types/pg");
+}
+
+const aw010aS7SourceByPath = new Map();
+for (const [path, expectedHash] of exactAw010aS7FileHashes) {
+  const source = await readFile(resolve(root, path));
+  const actualHash = createHash("sha256").update(source).digest("hex");
+  if (actualHash !== expectedHash) {
+    throw new Error(`${path} does not match the AW-010A S7 byte-exact oracle`);
+  }
+  aw010aS7SourceByPath.set(path, source.toString("utf8"));
+}
+
+const apiVitestConfig = aw010aS7SourceByPath.get("apps/api/vitest.config.ts");
+if (apiVitestConfig !== canonicalApiVitestConfig) {
+  throw new Error(
+    "API Vitest config does not match the cumulative AW-010A S7 exact unit and integration oracle",
+  );
+}
+if (
+  (apiVitestConfig.match(/\bprojects\s*:/gu) ?? []).length !== 1 ||
+  (apiVitestConfig.match(/\bextends\s*:\s*true\b/gu) ?? []).length !== 2 ||
+  (apiVitestConfig.match(/\bname\s*:\s*"unit"/gu) ?? []).length !== 1 ||
+  (apiVitestConfig.match(/\bname\s*:\s*"integration"/gu) ?? []).length !== 1 ||
+  (apiVitestConfig.match(/\binclude\s*:/gu) ?? []).length !== 2 ||
+  apiVitestConfig.includes("**")
+) {
+  throw new Error(
+    "API Vitest config must preserve exactly the S6 unit project and one literal S7 integration project",
+  );
+}
+
+const aw010aS7TestPath = "apps/api/test/channel-event-journal.integration.spec.ts";
+const aw010aS7TestSource = aw010aS7SourceByPath.get(aw010aS7TestPath);
+if (aw010aS7TestSource === undefined) {
+  throw new Error(`AW-010A S7 test source is missing: ${aw010aS7TestPath}`);
+}
+const aw010aS7TestNames = literalItTestNames(aw010aS7TestPath, aw010aS7TestSource);
+if (
+  aw010aS7TestNames.length !== 20 ||
+  new Set(aw010aS7TestNames).size !== 20 ||
+  aw010aS7TestNames.some((name) => !name.startsWith("AW010A-S7 "))
+) {
+  throw new Error("AW-010A S7 integration inventory must contain 20 unique prefixed it tests");
+}
+assertExactOrderedList(
+  "AW-010A S7 integration test names",
+  aw010aS7TestNames,
+  exactAw010aS7TestNames,
+);
+if (
+  (aw010aS7TestSource.match(/\bdescribe\s*\(/gu) ?? []).length !== 1 ||
+  !aw010aS7TestSource.includes(
+    'describe("AW010A-S7 real PostgreSQL channel event journal", () => {',
+  ) ||
+  /\b(?:describe|suite|it|test)\s*\.\s*[A-Za-z_$][A-Za-z0-9_$]*\b/u.test(aw010aS7TestSource) ||
+  /\b(?:suite|test|runIf|skipIf)\s*\(/u.test(aw010aS7TestSource)
+) {
+  throw new Error(
+    "AW-010A S7 tests must use only one direct describe and 20 direct literal it registrations",
+  );
+}
+
+assertSourceIncludesAll(
+  "AW-010A S7 harness, transaction, evidence, and teardown contract",
+  aw010aS7TestSource,
+  exactAw010aS7HarnessSemanticTokens,
+);
+
+const aw010aS7ImportSpecifiers = [
+  ...aw010aS7TestSource.matchAll(/\bimport\s+(?:type\s+)?(?:[^"']*?\s+from\s+)?["']([^"']+)["']/gu),
+].map((match) => match[1]);
+const aw010aS7DbCrossPathImports = aw010aS7ImportSpecifiers.filter((specifier) =>
+  specifier.startsWith("../../../packages/db/"),
+);
+assertExactOrderedList("AW-010A S7 direct DB source imports", aw010aS7DbCrossPathImports, [
+  "../../../packages/db/test/support/postgres.js",
+]);
+const forbiddenAw010aS7BareDatabaseImport = aw010aS7ImportSpecifiers.find((specifier) =>
+  /^(?:@agent-workspace\/db|@testcontainers\/postgresql|@types\/pg|pg|testcontainers)(?:\/|$)/u.test(
+    specifier,
+  ),
+);
+if (forbiddenAw010aS7BareDatabaseImport !== undefined) {
+  throw new Error(
+    `AW-010A S7 integration has a forbidden bare database import: ${forbiddenAw010aS7BareDatabaseImport}`,
+  );
+}
+if (
+  aw010aS7TestSource.includes("../../../packages/db/src/") ||
+  !aw010aS7TestSource.includes('} from "../../../packages/db/test/support/postgres.js";')
+) {
+  throw new Error(
+    "AW-010A S7 integration must use only the approved DB test-support import and frozen SQL artifacts",
+  );
+}
+
+for (const [label, pattern, expectedCount] of [
+  ["startPostgresTestHarness call", /\bstartPostgresTestHarness\s*\(\s*\)/gu, 1],
+  ["frozen migration application", /\bapplyFrozenMigrations\s*\(\s*\)/gu, 2],
+  [
+    "runtime harness connection",
+    /\bactiveHarness\s*\(\s*\)\s*\.\s*connect\s*\(\s*"runtime"\s*\)/gu,
+    1,
+  ],
+  ["harness stop call", /\btestHarness\s*\.\s*stop\s*\(\s*\)/gu, 1],
+  ["Docker residue command", /\bexecFile\s*\(\s*"docker"\s*,\s*args\b/gu, 1],
+  ["deadline timer", /\bsetTimeout\s*\(/gu, 1],
+  ["deadline timer clear", /\bclearTimeout\s*\(/gu, 1],
+  ["deferred concurrency barrier", /\bdeferred<void>\s*\(\s*\)/gu, 3],
+  ["barrier release", /\bbarrier\s*\.\s*resolve\s*\(\s*\)/gu, 3],
+  ["barrier wait", /\bawait\s+barrier\s*\.\s*promise\b/gu, 3],
+  ["bounded concurrent aggregate", /\bawait\s+withDeadline\s*\(/gu, 3],
+]) {
+  const actualCount = aw010aS7TestSource.match(pattern)?.length ?? 0;
+  if (actualCount !== expectedCount) {
+    throw new Error(
+      `AW-010A S7 ${label} count must equal ${expectedCount}; received ${actualCount}`,
+    );
+  }
+}
+if (/\b(?:setInterval|sleep)\s*\(|\bimport\s*\(/u.test(aw010aS7TestSource)) {
+  throw new Error("AW-010A S7 integration forbids sleeps, intervals, and dynamic imports");
+}
+
+const forbiddenAw010aS7Output = aw010aS7TestSource.match(
+  /\bconsole\s*\.|\bprocess\s*\.\s*(?:env|stderr|stdout)\b|\b(?:stderr|stdout)\s*\.\s*write\s*\(|\bexecFile\s*\(\s*["'](?:env|printenv)["']/u,
+);
+if (forbiddenAw010aS7Output !== null) {
+  throw new Error(`AW-010A S7 integration has forbidden URL or environment output surface`);
+}
+
+const aw010aS7AfterAllStart = aw010aS7TestSource.indexOf("afterAll(async () => {");
+const aw010aS7DescribeStart = aw010aS7TestSource.indexOf(
+  'describe("AW010A-S7 real PostgreSQL channel event journal", () => {',
+);
+if (
+  aw010aS7AfterAllStart === -1 ||
+  aw010aS7DescribeStart === -1 ||
+  aw010aS7AfterAllStart >= aw010aS7DescribeStart ||
+  (aw010aS7TestSource.match(/\bafterAll\s*\(/gu) ?? []).length !== 1
+) {
+  throw new Error(
+    "AW-010A S7 integration must define exactly one teardown before its test inventory",
+  );
+}
+const aw010aS7AfterAllSource = aw010aS7TestSource.slice(
+  aw010aS7AfterAllStart,
+  aw010aS7DescribeStart,
+);
+const aw010aS7TeardownStageTokens = [
+  "const capture = captureHarnessEvidence(testHarness);",
+  "const failures: unknown[] = [];",
+  "failures.push(...(await inspectEvidenceBeforeStop(capture)));",
+  "await testHarness.stop();",
+  "const residue = await findResidualContainerIds(capture.resources.labels);",
+  "harness = undefined;",
+  "if (failures.length === 1)",
+  "throw failures[0];",
+  "if (failures.length > 1)",
+  'throw new AggregateError(failures, "PostgreSQL integration teardown failed");',
+];
+let previousAw010aS7TeardownStageIndex = -1;
+for (const token of aw010aS7TeardownStageTokens) {
+  const index = aw010aS7AfterAllSource.indexOf(token, previousAw010aS7TeardownStageIndex + 1);
+  if (index === -1) {
+    throw new Error(`AW-010A S7 teardown has invalid evidence-stop-residue ordering at: ${token}`);
+  }
+  previousAw010aS7TeardownStageIndex = index;
+}
+assertSourceIncludesAll("AW-010A S7 non-short-circuiting teardown", aw010aS7AfterAllSource, [
+  `try {
+    failures.push(...(await inspectEvidenceBeforeStop(capture)));
+  } catch {
+    failures.push(new Error("evidence: inspection pipeline failed"));
+  }
+  try {
+    await testHarness.stop();
+  } catch (error) {
+    failures.push(error);
+  } finally {
+    try {
+      const residue = await findResidualContainerIds(capture.resources.labels);`,
+  'throw new AggregateError(failures, "PostgreSQL integration teardown failed");',
+]);
+
+assertExactOrderedList(
+  "AW-010A S7 per-test semantic inventory",
+  [...exactAw010aS7SemanticTokensByTestName.keys()],
+  exactAw010aS7TestNames,
+);
+for (const [index, name] of exactAw010aS7TestNames.entries()) {
+  const literal = `"${name}"`;
+  const start = aw010aS7TestSource.indexOf(literal);
+  const nextName = exactAw010aS7TestNames[index + 1];
+  const end =
+    nextName === undefined
+      ? aw010aS7TestSource.length
+      : aw010aS7TestSource.indexOf(`"${nextName}"`);
+  if (
+    start === -1 ||
+    end === -1 ||
+    start >= end ||
+    aw010aS7TestSource.indexOf(literal, start + literal.length) !== -1
+  ) {
+    throw new Error(`AW-010A S7 test must have one exact literal inventory location: ${name}`);
+  }
+  const expectedTokens = exactAw010aS7SemanticTokensByTestName.get(name);
+  if (expectedTokens === undefined) {
+    throw new Error(`AW-010A S7 semantic inventory is missing: ${name}`);
+  }
+  assertSourceIncludesAll(name, aw010aS7TestSource.slice(start, end), expectedTokens);
 }
 
 const workspacePolicy = await readFile(resolve(root, "pnpm-workspace.yaml"), "utf8");

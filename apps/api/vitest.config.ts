@@ -13,6 +13,15 @@ export default defineConfig({
           include: ["test/health.spec.ts", "test/channel-event-journal.spec.ts"],
         },
       },
+      {
+        extends: true,
+        test: {
+          name: "integration",
+          include: ["test/channel-event-journal.integration.spec.ts"],
+          passWithNoTests: false,
+          fileParallelism: false,
+        },
+      },
     ],
   },
 });
