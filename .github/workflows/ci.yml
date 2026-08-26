@@ -30,6 +30,10 @@ jobs:
         env:
           AW008D_TEST_EVIDENCE_DIRECTORY: ${{ github.workspace }}/artifacts/testcontainers
         run: pnpm test:integration
+      - name: Run API PostgreSQL integration
+        env:
+          AW008D_TEST_EVIDENCE_DIRECTORY: ${{ github.workspace }}/artifacts/testcontainers
+        run: pnpm test:integration:api
       - name: Upload Testcontainers evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

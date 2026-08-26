@@ -5,6 +5,23 @@ export default defineConfig({
   ...vitestUnitDefaults,
   test: {
     ...vitestUnitDefaults.test,
-    include: ["test/**/*.spec.ts"],
+    projects: [
+      {
+        extends: true,
+        test: {
+          name: "unit",
+          include: ["test/health.spec.ts", "test/channel-event-journal.spec.ts"],
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: "integration",
+          include: ["test/channel-event-journal.integration.spec.ts"],
+          passWithNoTests: false,
+          fileParallelism: false,
+        },
+      },
+    ],
   },
 });

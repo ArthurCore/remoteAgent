@@ -19,7 +19,12 @@ export default defineConfig({
         test: {
           name: "integration",
           passWithNoTests: false,
-          include: ["test/**/*.integration.spec.ts"],
+          include: [
+            "test/channel-stream-migration.integration.spec.ts",
+            "test/constraints.integration.spec.ts",
+            "test/migration.integration.spec.ts",
+            "test/roles.integration.spec.ts",
+          ],
           fileParallelism: false,
         },
       },

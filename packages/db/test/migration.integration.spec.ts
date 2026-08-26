@@ -11,6 +11,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { MIGRATIONS_SCHEMA, MIGRATIONS_TABLE, migrationConfig } from "../src/migration-config.js";
 import {
+  CHANNEL_STREAM_MIGRATION_HASH,
   FOUNDATION_MIGRATION_HASH,
   MigrationIntegrityError,
   verifyMigrationIntegrity,
@@ -29,9 +30,12 @@ const HARNESS_STOP_TIMEOUT_MILLISECONDS = 60_000;
 const TEST_TIMEOUT_MILLISECONDS = 30_000;
 const LOCK_OBSERVATION_TIMEOUT_MILLISECONDS = 10_000;
 const FOUNDATION_CREATED_AT = 1_787_648_708_709;
+const CHANNEL_STREAM_CREATED_AT = 1_787_695_124_181;
 const FAILING_MIGRATION_CREATED_AT = 1_900_000_000_000;
 const FAILING_MIGRATION_FOLDER = join(import.meta.dirname, "fixtures", "failing-migration");
 const EXPECTED_TABLE_NAMES = [
+  "channel_event_sequences",
+  "channel_events",
   "channel_membership_epochs",
   "channels",
   "principals",
@@ -211,7 +215,7 @@ async function assertHarnessEvidence(): Promise<void> {
     dockerImageReference: POSTGRES_TEST_IMAGE,
     database: currentHarness.resources.database,
     schemas: ["public", "drizzle"],
-    migrationHash: FOUNDATION_MIGRATION_HASH,
+    migrationHash: CHANNEL_STREAM_MIGRATION_HASH,
     testSeed: currentHarness.resources.runId,
     labels: currentHarness.resources.labels,
   });
@@ -336,6 +340,11 @@ describe.sequential("AW-008D real PostgreSQL migrations", () => {
           created_at: String(FOUNDATION_CREATED_AT),
           hash: FOUNDATION_MIGRATION_HASH,
         },
+        {
+          id: 2,
+          created_at: String(CHANNEL_STREAM_CREATED_AT),
+          hash: CHANNEL_STREAM_MIGRATION_HASH,
+        },
       ]);
       expect(await publicTableNames()).toEqual([...EXPECTED_TABLE_NAMES]);
 
@@ -395,6 +404,11 @@ describe.sequential("AW-008D real PostgreSQL migrations", () => {
           id: 1,
           created_at: String(FOUNDATION_CREATED_AT),
           hash: FOUNDATION_MIGRATION_HASH,
+        },
+        {
+          id: 2,
+          created_at: String(CHANNEL_STREAM_CREATED_AT),
+          hash: CHANNEL_STREAM_MIGRATION_HASH,
         },
       ]);
       expect(await publicTableNames()).toEqual([...EXPECTED_TABLE_NAMES]);

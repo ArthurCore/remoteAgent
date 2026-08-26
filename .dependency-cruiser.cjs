@@ -11,16 +11,12 @@ module.exports = {
         viaOnly: { dependencyTypesNot: ["type-only"] },
       },
     },
-    ...(!fixtureMode
-      ? [
-          {
-            name: "no-unresolvable-dependencies",
-            severity: "error",
-            from: {},
-            to: { couldNotResolve: true },
-          },
-        ]
-      : []),
+    {
+      name: "no-unresolvable-dependencies",
+      severity: "error",
+      from: {},
+      to: { couldNotResolve: true },
+    },
     {
       name: "web-must-not-import-db",
       severity: "error",
@@ -53,7 +49,9 @@ module.exports = {
       name: "chat-core-dependencies-are-restricted",
       severity: "error",
       from: { path: "^packages/chat-core/" },
-      to: { path: "^packages/(?!(?:chat-core|contracts|config)/)" },
+      to: {
+        path: "^(?:packages/(?!(?:chat-core|contracts|config)/)|@agent-workspace/db(?:/|$))",
+      },
     },
     {
       name: "contracts-runtime-has-no-workspace-dependencies",
@@ -103,7 +101,7 @@ module.exports = {
     exclude: {
       path: fixtureMode
         ? "(^|/)(?:dist|\\.next|coverage)/"
-        : "(^|/)(?:dist|\\.next|coverage)/|^apps/web/test/fixtures/forbidden-db-import\\.ts$",
+        : "(^|/)(?:dist|\\.next|coverage)/|^apps/web/test/fixtures/forbidden-db-import\\.ts$|^packages/chat-core/test/fixtures/forbidden-db-import\\.ts$",
     },
     tsPreCompilationDeps: true,
     tsConfig: { fileName: "tsconfig.base.json" },

@@ -9,9 +9,11 @@
     "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
     "lint": "eslint src test vitest.config.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test:unit": "vitest run --config vitest.config.ts"
+    "test:unit": "vitest run --config vitest.config.ts --project unit",
+    "test:integration": "vitest run --config vitest.config.ts --project integration --no-file-parallelism"
   },
   "dependencies": {
+    "@agent-workspace/chat-core": "workspace:*",
     "@agent-workspace/config": "workspace:*",
     "@agent-workspace/contracts": "workspace:*",
     "@agent-workspace/db": "workspace:*",

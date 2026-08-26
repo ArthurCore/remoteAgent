@@ -319,6 +319,8 @@ describe("AW-008 frozen Drizzle foundation", () => {
   it("keeps the epoch table structural and the public DB surface free of product writes", () => {
     expect(Object.keys(database).sort()).toEqual(
       [
+        "channelEventSequences",
+        "channelEvents",
         "channelKindV1",
         "channelMembershipEpochs",
         "channels",

@@ -22,6 +22,7 @@
     "db:migrate": "pnpm --filter @agent-workspace/db db:migrate",
     "test:unit": "turbo run test:unit",
     "test:integration": "pnpm --filter @agent-workspace/db test:integration",
+    "test:integration:api": "pnpm --filter @agent-workspace/api test:integration",
     "scaffold:check": "node scripts/assert-aw007-tree.mjs",
     "compose:up": "scripts/compose.sh up -d --build --wait",
     "compose:down": "scripts/compose.sh down --remove-orphans",

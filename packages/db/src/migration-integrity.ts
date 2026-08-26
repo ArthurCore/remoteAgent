@@ -10,11 +10,15 @@ import type { MigrationClient } from "./migrate.js";
 
 export const FOUNDATION_MIGRATION_HASH =
   "645229b04fc4eddd44d47301d47f1efbd394daa6c97852c3ea4a3cbb26df23c2";
+export const CHANNEL_STREAM_MIGRATION_HASH =
+  "e44f52f786360ac502c0d928cebaebdca718abdd39ae2e78275b9d21505aef26";
 
 const frozenArtifactHashes = new Map<string, string>([
   ["0000_aw008_foundation.sql", FOUNDATION_MIGRATION_HASH],
+  ["0001_aw010a_channel_stream.sql", CHANNEL_STREAM_MIGRATION_HASH],
   ["meta/0000_snapshot.json", "2dbb8666e9f74ba19e1faa4d3df0309db2a5d29f65aaa6648e399070cbe23fc1"],
-  ["meta/_journal.json", "e10eae9ec0df3cc6b2d809031b4250a1bc369d51f51659d7b60dc2262bec228d"],
+  ["meta/0001_snapshot.json", "f118e261f89cd9e6d4faefa23c972c5bd4fc84dc5a14d9cca77cbf2b642751d2"],
+  ["meta/_journal.json", "70c038f3554c6b0e9eeb3bf429920d4a20c5cdfb7e6d2d02e43ccbbcc5520762"],
 ]);
 
 export interface AppliedMigration {
@@ -276,8 +280,12 @@ export function checkLocalMigrationFiles(config: MigrationConfig = migrationConf
 
   const migrations = readMigrationFiles(config);
   assertLocalMigrations(migrations);
-  if (migrations.length !== 1 || migrations[0]?.hash !== FOUNDATION_MIGRATION_HASH) {
-    throw new MigrationIntegrityError("Migration journal does not describe the frozen foundation");
+  if (
+    migrations.length !== 2 ||
+    migrations[0]?.hash !== FOUNDATION_MIGRATION_HASH ||
+    migrations[1]?.hash !== CHANNEL_STREAM_MIGRATION_HASH
+  ) {
+    throw new MigrationIntegrityError("Migration journal does not describe the frozen prefix");
   }
 
   return { migrationCount: migrations.length, hashes: migrations.map(({ hash }) => hash) };

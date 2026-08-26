@@ -5,6 +5,8 @@ import { runMigrations } from "../src/migrate.js";
 import { startPostgresTestHarness, type PostgresTestHarness } from "./support/postgres.js";
 
 const PUBLIC_TABLES = [
+  "channel_event_sequences",
+  "channel_events",
   "channel_membership_epochs",
   "channels",
   "principals",
@@ -36,7 +38,7 @@ interface TableRow extends QueryResultRow {
 interface ConstraintRow extends QueryResultRow {
   table_name: string;
   constraint_name: string;
-  constraint_type: "c" | "f" | "p";
+  constraint_type: "c" | "f" | "p" | "t" | "u";
   definition: string;
 }
 
@@ -50,10 +52,10 @@ interface IndexRow extends QueryResultRow {
 
 interface FoundationColumnRow extends QueryResultRow {
   table_name: string;
-  column_name: "created_at" | "version";
+  column_name: "created_at" | "occurred_at" | "schema_version" | "version";
   data_type: string;
   datetime_precision: number | null;
-  column_default: string;
+  column_default: string | null;
   is_nullable: "NO";
 }
 
@@ -66,6 +68,16 @@ interface ConstraintProbe {
   readonly constraint: string;
   readonly statement: string;
   readonly parameters: unknown[];
+}
+
+interface ChannelEventFixture {
+  readonly tenantId: string;
+  readonly channelId: string;
+  readonly eventSeq: number;
+  readonly eventId: string;
+  readonly eventType: "channel.member_joined" | "channel.member_left" | "channel.member_revoked";
+  readonly actorPrincipalId: string;
+  readonly actorKind: "human" | "service";
 }
 
 function constraintRow(
@@ -109,6 +121,14 @@ function checkConstraint(
   return constraintRow(tableName, constraintName, "c", `CHECK (${expression})`);
 }
 
+function uniqueConstraint(
+  tableName: string,
+  constraintName: string,
+  columns: string,
+): ConstraintRow {
+  return constraintRow(tableName, constraintName, "u", `UNIQUE (${columns})`);
+}
+
 function compareConstraintRows(left: ConstraintRow, right: ConstraintRow): number {
   const leftKey = `${left.table_name}\u0000${left.constraint_type}\u0000${left.constraint_name}`;
   const rightKey = `${right.table_name}\u0000${right.constraint_type}\u0000${right.constraint_name}`;
@@ -118,6 +138,55 @@ function compareConstraintRows(left: ConstraintRow, right: ConstraintRow): numbe
 }
 
 const EXPECTED_CONSTRAINTS = [
+  primaryKey("channel_event_sequences", "channel_event_sequences_pkey", "tenant_id, channel_id"),
+  foreignKey(
+    "channel_event_sequences",
+    "channel_event_sequences_tenant_channel_fk",
+    "tenant_id, channel_id",
+    "channels",
+    "tenant_id, channel_id",
+  ),
+  checkConstraint(
+    "channel_event_sequences",
+    "channel_event_sequences_last_event_seq_check",
+    "last_event_seq >= 0",
+  ),
+  primaryKey("channel_events", "channel_events_pkey", "tenant_id, channel_id, event_seq"),
+  foreignKey(
+    "channel_events",
+    "channel_events_tenant_channel_fk",
+    "tenant_id, channel_id",
+    "channels",
+    "tenant_id, channel_id",
+  ),
+  uniqueConstraint("channel_events", "channel_events_event_id_key", "event_id"),
+  checkConstraint("channel_events", "channel_events_event_seq_check", "event_seq > 0"),
+  checkConstraint(
+    "channel_events",
+    "channel_events_event_id_nonempty_check",
+    "length(event_id::text) > 0",
+  ),
+  checkConstraint("channel_events", "channel_events_schema_version_check", "schema_version = 1"),
+  checkConstraint(
+    "channel_events",
+    "channel_events_event_type_check",
+    "event_type = ANY (ARRAY['message.created'::text, 'message.edited'::text, 'message.deleted'::text, 'reaction.changed'::text, 'channel.member_joined'::text, 'channel.member_left'::text, 'channel.member_revoked'::text])",
+  ),
+  checkConstraint(
+    "channel_events",
+    "channel_events_actor_principal_id_nonempty_check",
+    "length(actor_principal_id::text) > 0",
+  ),
+  checkConstraint(
+    "channel_events",
+    "channel_events_actor_kind_check",
+    "actor_kind = ANY (ARRAY['human'::text, 'service'::text, 'system'::text])",
+  ),
+  checkConstraint(
+    "channel_events",
+    "channel_events_payload_object_check",
+    "jsonb_typeof(payload) = 'object'::text",
+  ),
   primaryKey("tenants", "tenants_pk", "tenant_id"),
   primaryKey("workspaces", "workspaces_pk", "tenant_id, workspace_id"),
   primaryKey("principals", "principals_pk", "tenant_id, principal_id"),
@@ -168,6 +237,26 @@ const EXPECTED_CONSTRAINTS = [
     "tenant_id, principal_id",
     "principals",
     "tenant_id, principal_id",
+  ),
+  foreignKey(
+    "channel_membership_epochs",
+    "channel_membership_epochs_joined_event_fk",
+    "tenant_id, channel_id, joined_event_seq",
+    "channel_events",
+    "tenant_id, channel_id, event_seq",
+  ),
+  foreignKey(
+    "channel_membership_epochs",
+    "channel_membership_epochs_exited_event_fk",
+    "tenant_id, channel_id, exited_event_seq",
+    "channel_events",
+    "tenant_id, channel_id, event_seq",
+  ),
+  constraintRow(
+    "channel_membership_epochs",
+    "channel_membership_epochs_event_type_guard",
+    "t",
+    "TRIGGER DEFERRABLE INITIALLY DEFERRED",
   ),
   checkConstraint("tenants", "tenants_tenant_id_nonempty_ck", "length(tenant_id::text) > 0"),
   checkConstraint("tenants", "tenants_version_positive_ck", "version > 0"),
@@ -250,7 +339,16 @@ const EXPECTED_CONSTRAINTS = [
   ),
 ].sort(compareConstraintRows);
 
-const EXPECTED_INDEXES: IndexRow[] = [
+const EVENT_ID_UNIQUE_INDEX: IndexRow = {
+  table_name: "channel_events",
+  index_name: "channel_events_event_id_key",
+  is_unique: true,
+  definition:
+    "CREATE UNIQUE INDEX channel_events_event_id_key ON public.channel_events USING btree (event_id)",
+  predicate: null,
+};
+
+const FOUNDATION_INDEXES: IndexRow[] = [
   {
     table_name: "channel_membership_epochs",
     index_name: "channel_membership_epochs_channel_seq_idx",
@@ -292,6 +390,8 @@ const EXPECTED_INDEXES: IndexRow[] = [
     predicate: null,
   },
 ];
+
+const EXPECTED_INDEXES: IndexRow[] = [EVENT_ID_UNIQUE_INDEX, ...FOUNDATION_INDEXES];
 
 let harness: PostgresTestHarness | undefined;
 let databaseReady = false;
@@ -366,6 +466,31 @@ async function seedTwoTenantFixture(client: PoolClient): Promise<void> {
   );
 }
 
+async function seedChannelEvents(
+  client: PoolClient,
+  events: readonly ChannelEventFixture[],
+): Promise<void> {
+  for (const event of events) {
+    await client.query(
+      `INSERT INTO channel_events
+         (tenant_id, channel_id, event_seq, event_id, schema_version, event_type,
+          actor_principal_id, actor_kind, occurred_at, payload)
+       VALUES ($1, $2, $3, $4, 1, $5, $6, $7, $8, $9::jsonb)`,
+      [
+        event.tenantId,
+        event.channelId,
+        event.eventSeq,
+        event.eventId,
+        event.eventType,
+        event.actorPrincipalId,
+        event.actorKind,
+        "2026-08-26T00:00:00.000Z",
+        JSON.stringify({ eventId: event.eventId }),
+      ],
+    );
+  }
+}
+
 beforeAll(async () => {
   harness = await startPostgresTestHarness();
 }, 120_000);
@@ -387,14 +512,16 @@ afterEach(async () => {
     "runtime",
     `SELECT table_name, row_count
        FROM (
-         SELECT 'channel_membership_epochs' AS table_name, count(*)::integer AS row_count FROM channel_membership_epochs
+         SELECT 'channel_event_sequences' AS table_name, count(*)::integer AS row_count FROM channel_event_sequences
+         UNION ALL SELECT 'channel_events', count(*)::integer FROM channel_events
+         UNION ALL SELECT 'channel_membership_epochs', count(*)::integer FROM channel_membership_epochs
          UNION ALL SELECT 'channels', count(*)::integer FROM channels
          UNION ALL SELECT 'principals', count(*)::integer FROM principals
          UNION ALL SELECT 'tenants', count(*)::integer FROM tenants
          UNION ALL SELECT 'workspace_memberships', count(*)::integer FROM workspace_memberships
          UNION ALL SELECT 'workspaces', count(*)::integer FROM workspaces
        ) AS public_counts
-      ORDER BY table_name`,
+      ORDER BY table_name COLLATE "C"`,
   );
   expect(result.rows).toEqual(
     PUBLIC_TABLES.map((tableName) => ({ table_name: tableName, row_count: 0 })),
@@ -435,20 +562,20 @@ describe.sequential("AW-008D PostgreSQL foundation constraints", () => {
     ]);
   });
 
-  it("installs exactly six public tables and no AW-010 product tables", async () => {
+  it("installs exactly eight public tables and no deferred AW-010 product tables", async () => {
     const result = await currentHarness().query<TableRow>(
       "migrator",
       `SELECT table_name
          FROM information_schema.tables
         WHERE table_schema = 'public'
           AND table_type = 'BASE TABLE'
-        ORDER BY table_name`,
+        ORDER BY table_name COLLATE "C"`,
     );
 
     expect(result.rows).toEqual(PUBLIC_TABLES.map((tableName) => ({ table_name: tableName })));
   });
 
-  it("installs every exact primary key, foreign key, and check definition with no extras", async () => {
+  it("installs every exact cumulative constraint definition and timing with no extras", async () => {
     const result = await currentHarness().query<ConstraintRow>(
       "migrator",
       `SELECT relation.relname AS table_name,
@@ -459,16 +586,60 @@ describe.sequential("AW-008D PostgreSQL foundation constraints", () => {
          JOIN pg_class AS relation ON relation.oid = constraint_entry.conrelid
          JOIN pg_namespace AS namespace ON namespace.oid = relation.relnamespace
         WHERE namespace.nspname = 'public'
-        ORDER BY relation.relname, constraint_entry.contype, constraint_entry.conname`,
+        ORDER BY relation.relname COLLATE "C",
+                 constraint_entry.contype,
+                 constraint_entry.conname COLLATE "C"`,
     );
 
     expect(result.rows).toEqual(EXPECTED_CONSTRAINTS);
-    for (const constraint of result.rows.filter((row) => row.constraint_type !== "c")) {
+    for (const constraint of result.rows.filter(
+      (row) => row.constraint_type === "f" || row.constraint_type === "p",
+    )) {
       expect(constraint.definition).toMatch(/\(tenant_id(?:,|\))/u);
     }
+
+    const membershipEventTiming = await currentHarness().query<{
+      constraint_name: string;
+      constraint_type: "f" | "t";
+      is_deferrable: boolean;
+      is_initially_deferred: boolean;
+    }>(
+      "migrator",
+      `SELECT conname AS constraint_name,
+              contype AS constraint_type,
+              condeferrable AS is_deferrable,
+              condeferred AS is_initially_deferred
+         FROM pg_constraint
+        WHERE conname IN (
+          'channel_membership_epochs_joined_event_fk',
+          'channel_membership_epochs_exited_event_fk',
+          'channel_membership_epochs_event_type_guard'
+        )
+        ORDER BY conname COLLATE "C"`,
+    );
+    expect(membershipEventTiming.rows).toEqual([
+      {
+        constraint_name: "channel_membership_epochs_event_type_guard",
+        constraint_type: "t",
+        is_deferrable: true,
+        is_initially_deferred: true,
+      },
+      {
+        constraint_name: "channel_membership_epochs_exited_event_fk",
+        constraint_type: "f",
+        is_deferrable: false,
+        is_initially_deferred: false,
+      },
+      {
+        constraint_name: "channel_membership_epochs_joined_event_fk",
+        constraint_type: "f",
+        is_deferrable: false,
+        is_initially_deferred: false,
+      },
+    ]);
   });
 
-  it("installs only the exact tenant-leading indexes and one-active predicate", async () => {
+  it("installs exact foundation indexes plus the event-id backing unique index", async () => {
     const result = await currentHarness().query<IndexRow>(
       "migrator",
       `SELECT table_relation.relname AS table_name,
@@ -482,17 +653,20 @@ describe.sequential("AW-008D PostgreSQL foundation constraints", () => {
          JOIN pg_class AS index_relation ON index_relation.oid = index_entry.indexrelid
         WHERE namespace.nspname = 'public'
           AND NOT index_entry.indisprimary
-        ORDER BY table_relation.relname, index_relation.relname`,
+        ORDER BY table_relation.relname COLLATE "C", index_relation.relname COLLATE "C"`,
     );
 
     expect(result.rows).toEqual(EXPECTED_INDEXES);
-    for (const index of result.rows) {
+    for (const index of FOUNDATION_INDEXES) {
       expect(index.definition).toMatch(/ USING btree \(tenant_id,/u);
     }
-    expect(result.rows.filter((row) => row.predicate !== null)).toEqual([EXPECTED_INDEXES[1]]);
+    expect(result.rows.filter((row) => row.table_name === "channel_events")).toEqual([
+      EVENT_ID_UNIQUE_INDEX,
+    ]);
+    expect(result.rows.filter((row) => row.predicate !== null)).toEqual([FOUNDATION_INDEXES[1]]);
   });
 
-  it("keeps every timestamp and version exact, non-null, and defaulted", async () => {
+  it("keeps exact cumulative timestamp and version metadata non-null", async () => {
     const result = await currentHarness().query<FoundationColumnRow>(
       "migrator",
       `SELECT table_name,
@@ -503,35 +677,66 @@ describe.sequential("AW-008D PostgreSQL foundation constraints", () => {
               is_nullable
          FROM information_schema.columns
         WHERE table_schema = 'public'
-          AND column_name IN ('created_at', 'version')
-        ORDER BY table_name, column_name`,
+          AND column_name IN ('created_at', 'occurred_at', 'schema_version', 'version')
+        ORDER BY table_name COLLATE "C", column_name COLLATE "C"`,
     );
 
-    expect(result.rows).toEqual(
-      PUBLIC_TABLES.flatMap((tableName) => [
-        {
-          table_name: tableName,
-          column_name: "created_at",
-          data_type: "timestamp with time zone",
-          datetime_precision: 6,
-          column_default: "now()",
-          is_nullable: "NO",
-        },
-        {
-          table_name: tableName,
-          column_name: "version",
-          data_type: "bigint",
-          datetime_precision: null,
-          column_default: "1",
-          is_nullable: "NO",
-        },
+    const createdAtColumn = (tableName: string): FoundationColumnRow => ({
+      table_name: tableName,
+      column_name: "created_at",
+      data_type: "timestamp with time zone",
+      datetime_precision: 6,
+      column_default: "now()",
+      is_nullable: "NO",
+    });
+    const versionColumn = (tableName: string): FoundationColumnRow => ({
+      table_name: tableName,
+      column_name: "version",
+      data_type: "bigint",
+      datetime_precision: null,
+      column_default: "1",
+      is_nullable: "NO",
+    });
+    expect(result.rows).toEqual([
+      createdAtColumn("channel_event_sequences"),
+      createdAtColumn("channel_events"),
+      {
+        table_name: "channel_events",
+        column_name: "occurred_at",
+        data_type: "timestamp with time zone",
+        datetime_precision: 6,
+        column_default: null,
+        is_nullable: "NO",
+      },
+      {
+        table_name: "channel_events",
+        column_name: "schema_version",
+        data_type: "integer",
+        datetime_precision: null,
+        column_default: null,
+        is_nullable: "NO",
+      },
+      ...PUBLIC_TABLES.slice(2).flatMap((tableName) => [
+        createdAtColumn(tableName),
+        versionColumn(tableName),
       ]),
-    );
+    ]);
   });
 
-  it("accepts valid structural rows and synthetic positive epoch markers without claiming product writes", async () => {
+  it("accepts valid structural rows and real event-first membership epochs without claiming product writes", async () => {
     await withRollbackTransaction(async (client) => {
       await seedTwoTenantFixture(client);
+      await seedChannelEvents(client, [
+        {
+          tenantId: FIXTURE.tenantA,
+          channelId: FIXTURE.channelA,
+          eventSeq: 101,
+          eventId: "event_valid_joined_a_101",
+          eventType: "channel.member_joined",
+          actorPrincipalId: FIXTURE.principalA,
+          actorKind: "human",
+        },
+      ]);
       await client.query(
         `INSERT INTO workspace_memberships (tenant_id, workspace_id, principal_id, role)
          VALUES ($1, $2, $3, 'owner')`,
@@ -541,32 +746,35 @@ describe.sequential("AW-008D PostgreSQL foundation constraints", () => {
         `INSERT INTO channel_membership_epochs
            (tenant_id, channel_id, principal_id, membership_epoch, history_mode, joined_event_seq)
          VALUES ($1, $2, $3, $4, 'full', $5)`,
-        [FIXTURE.tenantA, FIXTURE.channelA, FIXTURE.principalA, "epoch_synthetic_1", 101],
+        [FIXTURE.tenantA, FIXTURE.channelA, FIXTURE.principalA, "epoch_event_first_1", 101],
       );
+      await client.query("SET CONSTRAINTS channel_membership_epochs_event_type_guard IMMEDIATE");
 
       const defaults = await client.query<
         QueryResultRow & {
           table_name: string;
           created_at_present: boolean;
-          version_is_one: boolean;
+          row_values_valid: boolean;
         }
       >(
-        `SELECT table_name, created_at IS NOT NULL AS created_at_present, version = 1 AS version_is_one
+        `SELECT table_name, created_at_present, row_values_valid
            FROM (
-             SELECT 'tenants' AS table_name, created_at, version FROM tenants WHERE tenant_id = $1
-             UNION ALL SELECT 'workspaces', created_at, version FROM workspaces WHERE tenant_id = $1 AND workspace_id = $2
-             UNION ALL SELECT 'principals', created_at, version FROM principals WHERE tenant_id = $1 AND principal_id = $3
-             UNION ALL SELECT 'workspace_memberships', created_at, version FROM workspace_memberships WHERE tenant_id = $1 AND workspace_id = $2 AND principal_id = $3
-             UNION ALL SELECT 'channels', created_at, version FROM channels WHERE tenant_id = $1 AND channel_id = $4
-             UNION ALL SELECT 'channel_membership_epochs', created_at, version FROM channel_membership_epochs WHERE tenant_id = $1 AND channel_id = $4 AND principal_id = $3 AND membership_epoch = $5
+             SELECT 'channel_event_sequences' AS table_name, created_at IS NOT NULL AS created_at_present, last_event_seq = 0 AS row_values_valid FROM channel_event_sequences WHERE tenant_id = $1 AND channel_id = $4
+             UNION ALL SELECT 'channel_events', created_at IS NOT NULL, schema_version = 1 FROM channel_events WHERE tenant_id = $1 AND channel_id = $4 AND event_seq = 101
+             UNION ALL SELECT 'channel_membership_epochs', created_at IS NOT NULL, version = 1 FROM channel_membership_epochs WHERE tenant_id = $1 AND channel_id = $4 AND principal_id = $3 AND membership_epoch = $5
+             UNION ALL SELECT 'channels', created_at IS NOT NULL, version = 1 FROM channels WHERE tenant_id = $1 AND channel_id = $4
+             UNION ALL SELECT 'principals', created_at IS NOT NULL, version = 1 FROM principals WHERE tenant_id = $1 AND principal_id = $3
+             UNION ALL SELECT 'tenants', created_at IS NOT NULL, version = 1 FROM tenants WHERE tenant_id = $1
+             UNION ALL SELECT 'workspace_memberships', created_at IS NOT NULL, version = 1 FROM workspace_memberships WHERE tenant_id = $1 AND workspace_id = $2 AND principal_id = $3
+             UNION ALL SELECT 'workspaces', created_at IS NOT NULL, version = 1 FROM workspaces WHERE tenant_id = $1 AND workspace_id = $2
            ) AS structural_rows
-          ORDER BY table_name`,
+          ORDER BY table_name COLLATE "C"`,
         [
           FIXTURE.tenantA,
           FIXTURE.workspaceA,
           FIXTURE.principalA,
           FIXTURE.channelA,
-          "epoch_synthetic_1",
+          "epoch_event_first_1",
         ],
       );
 
@@ -574,7 +782,7 @@ describe.sequential("AW-008D PostgreSQL foundation constraints", () => {
         PUBLIC_TABLES.map((tableName) => ({
           table_name: tableName,
           created_at_present: true,
-          version_is_one: true,
+          row_values_valid: true,
         })),
       );
     });
@@ -583,6 +791,17 @@ describe.sequential("AW-008D PostgreSQL foundation constraints", () => {
   it("rejects every empty opaque ID and every non-positive version with exact checks", async () => {
     await withRollbackTransaction(async (client) => {
       await seedTwoTenantFixture(client);
+      await seedChannelEvents(client, [
+        {
+          tenantId: FIXTURE.tenantA,
+          channelId: FIXTURE.channelA,
+          eventSeq: 1,
+          eventId: "event_constraint_probe_joined_a_1",
+          eventType: "channel.member_joined",
+          actorPrincipalId: FIXTURE.principalA,
+          actorKind: "human",
+        },
+      ]);
 
       const nonemptyProbes: ConstraintProbe[] = [
         {
@@ -725,6 +944,26 @@ describe.sequential("AW-008D PostgreSQL foundation constraints", () => {
   it("rejects cross-tenant workspace, principal, and channel references by exact foreign key", async () => {
     await withRollbackTransaction(async (client) => {
       await seedTwoTenantFixture(client);
+      await seedChannelEvents(client, [
+        {
+          tenantId: FIXTURE.tenantA,
+          channelId: FIXTURE.channelA,
+          eventSeq: 1,
+          eventId: "event_cross_tenant_joined_a_1",
+          eventType: "channel.member_joined",
+          actorPrincipalId: FIXTURE.principalA,
+          actorKind: "human",
+        },
+        {
+          tenantId: FIXTURE.tenantB,
+          channelId: FIXTURE.channelB,
+          eventSeq: 1,
+          eventId: "event_cross_tenant_joined_b_1",
+          eventType: "channel.member_joined",
+          actorPrincipalId: FIXTURE.principalB,
+          actorKind: "service",
+        },
+      ]);
 
       const probes: ConstraintProbe[] = [
         {
@@ -773,9 +1012,65 @@ describe.sequential("AW-008D PostgreSQL foundation constraints", () => {
     });
   });
 
-  it("requires a positive synthetic join marker and a null or later exit marker", async () => {
+  it("requires a positive event-backed join sequence and a null or later exit sequence", async () => {
     await withRollbackTransaction(async (client) => {
       await seedTwoTenantFixture(client);
+      await seedChannelEvents(client, [
+        {
+          tenantId: FIXTURE.tenantA,
+          channelId: FIXTURE.channelA,
+          eventSeq: 1,
+          eventId: "event_sequence_probe_left_a_1",
+          eventType: "channel.member_left",
+          actorPrincipalId: FIXTURE.principalA,
+          actorKind: "human",
+        },
+        {
+          tenantId: FIXTURE.tenantA,
+          channelId: FIXTURE.channelA,
+          eventSeq: 9,
+          eventId: "event_sequence_probe_left_a_9",
+          eventType: "channel.member_left",
+          actorPrincipalId: FIXTURE.principalA,
+          actorKind: "human",
+        },
+        {
+          tenantId: FIXTURE.tenantA,
+          channelId: FIXTURE.channelA,
+          eventSeq: 10,
+          eventId: "event_sequence_probe_joined_a_10",
+          eventType: "channel.member_joined",
+          actorPrincipalId: FIXTURE.principalA,
+          actorKind: "human",
+        },
+        {
+          tenantId: FIXTURE.tenantA,
+          channelId: FIXTURE.channelA,
+          eventSeq: 11,
+          eventId: "event_sequence_valid_joined_a_11",
+          eventType: "channel.member_joined",
+          actorPrincipalId: FIXTURE.principalA,
+          actorKind: "human",
+        },
+        {
+          tenantId: FIXTURE.tenantA,
+          channelId: FIXTURE.channelA,
+          eventSeq: 12,
+          eventId: "event_sequence_valid_left_a_12",
+          eventType: "channel.member_left",
+          actorPrincipalId: FIXTURE.principalA,
+          actorKind: "human",
+        },
+        {
+          tenantId: FIXTURE.tenantA,
+          channelId: FIXTURE.channelA,
+          eventSeq: 13,
+          eventId: "event_sequence_valid_joined_a_13",
+          eventType: "channel.member_joined",
+          actorPrincipalId: FIXTURE.principalA,
+          actorKind: "human",
+        },
+      ]);
 
       for (const probe of [
         {
@@ -818,6 +1113,7 @@ describe.sequential("AW-008D PostgreSQL foundation constraints", () => {
                 ($1, $2, $3, 'epoch_active_valid', 'since_join', 13, NULL)`,
         [FIXTURE.tenantA, FIXTURE.channelA, FIXTURE.principalA],
       );
+      await client.query("SET CONSTRAINTS channel_membership_epochs_event_type_guard IMMEDIATE");
       const rows = await client.query<
         QueryResultRow & {
           membership_epoch: string;
@@ -847,6 +1143,53 @@ describe.sequential("AW-008D PostgreSQL foundation constraints", () => {
   it("enforces one active epoch per tenant/channel/principal while preserving closed history", async () => {
     await withRollbackTransaction(async (client) => {
       await seedTwoTenantFixture(client);
+      await seedChannelEvents(client, [
+        {
+          tenantId: FIXTURE.tenantA,
+          channelId: FIXTURE.channelA,
+          eventSeq: 100,
+          eventId: "event_active_joined_a_100",
+          eventType: "channel.member_joined",
+          actorPrincipalId: FIXTURE.principalA,
+          actorKind: "human",
+        },
+        {
+          tenantId: FIXTURE.tenantA,
+          channelId: FIXTURE.channelA,
+          eventSeq: 101,
+          eventId: "event_active_duplicate_joined_a_101",
+          eventType: "channel.member_joined",
+          actorPrincipalId: FIXTURE.principalA,
+          actorKind: "human",
+        },
+        {
+          tenantId: FIXTURE.tenantA,
+          channelId: FIXTURE.channelA,
+          eventSeq: 102,
+          eventId: "event_active_left_a_102",
+          eventType: "channel.member_left",
+          actorPrincipalId: FIXTURE.principalA,
+          actorKind: "human",
+        },
+        {
+          tenantId: FIXTURE.tenantA,
+          channelId: FIXTURE.channelA,
+          eventSeq: 103,
+          eventId: "event_active_joined_a_103",
+          eventType: "channel.member_joined",
+          actorPrincipalId: FIXTURE.principalA,
+          actorKind: "human",
+        },
+        {
+          tenantId: FIXTURE.tenantB,
+          channelId: FIXTURE.channelB,
+          eventSeq: 100,
+          eventId: "event_active_joined_b_100",
+          eventType: "channel.member_joined",
+          actorPrincipalId: FIXTURE.principalB,
+          actorKind: "service",
+        },
+      ]);
       await client.query(
         `INSERT INTO channel_membership_epochs
            (tenant_id, channel_id, principal_id, membership_epoch, history_mode, joined_event_seq)
@@ -888,6 +1231,7 @@ describe.sequential("AW-008D PostgreSQL foundation constraints", () => {
           FIXTURE.principalB,
         ],
       );
+      await client.query("SET CONSTRAINTS channel_membership_epochs_event_type_guard IMMEDIATE");
 
       const rows = await client.query<
         QueryResultRow & {
